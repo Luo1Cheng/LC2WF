@@ -19,11 +19,11 @@ dataset:
   LineCloud_path: LC2WF_data/LineCloud_0130_P123
 
 seed: 1555
-mode: "train"
-write_pred_junc: False
+mode: "writeJunc"
+write_pred_junc: True
 write_pred_junc_path: ./log/outputPredJunc_retrained
 model:
-  load_model: ''
+  load_model: './log/****/saved_models/junction_best.pth'
 Net:
   input_dim: 7
 transformer:

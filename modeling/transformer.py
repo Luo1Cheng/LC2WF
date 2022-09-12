@@ -45,9 +45,7 @@ class Mytransformer(nn.Module):
             nn.Conv2d(128, 128, 1, 1), nn.BatchNorm2d(128), nn.ReLU(),
             nn.Conv2d(128, 256, 1, 1), nn.BatchNorm2d(256), nn.ReLU(),
         )
-
-        # self.Head1 = Head([512, 256, 128, 64, 32])
-        self.Head1 = Head([ 256, 128, 64, 32])
+        self.Head1 = Head([256, 128, 64, 32])
         self.Myloss = Myloss()
     def _reset_parameters(self):
         for p in self.parameters():
@@ -73,17 +71,17 @@ class Mytransformer(nn.Module):
         l2_points = l2_points.view(bs,sn,gn,-1)
 
         group_points = torch.mean(l2_points,dim=-2)
-        #这里应该给group_points cat些global信息
+        # maybe cat some global infomation to group_points
         l3_points,attention_weights_list1 = self.transformer2(group_points,None,None,None)
 
         l3_points = l3_points.permute(0,2,1)
         l1_logits, l1_predXYZ = self.Head1(l3_points, None, batch['fpsPoint'])
         loss1 = self.Myloss(l1_logits, l1_predXYZ, batch['classifyLabel'], batch['label'], batch['objGTJunc3D'], batch['item'], batch['fpsPoint'],'l1')
-        loss1["l1_mae_loss"] = (loss1['l1_mae_loss'] * batch['std'].unsqueeze(-1)) #+ batch['mean']
+        loss1["l1_mae_loss"] = (loss1['l1_mae_loss'] * batch['std'].unsqueeze(-1))
         loss1["l1_mae_loss"] = loss1["l1_mae_loss"].mean()
 
-        loss={}
-        loss['loss'] = loss1['l1_loss'] #+ edgeLoss
+        loss = {}
+        loss['loss'] = loss1['l1_loss']
         loss['attn1'] = torch.stack(attention_weights_list)
         loss['attn2'] = torch.stack(attention_weights_list1)
         loss.update(loss1)
@@ -104,84 +102,16 @@ class Mytransformer(nn.Module):
         l2_points = l2_points.view(bs,sn,gn,-1)
 
         group_points = torch.mean(l2_points,dim=-2)
-        #这里应该给group_points cat些global信息
+
         l3_points, _ = self.transformer2(group_points,None,None,None)
 
         l3_points = l3_points.permute(0,2,1)
         l1_logits, l1_predXYZ = self.Head1(l3_points, None, batch['fpsPoint'])
-        # loss1 = self.Myloss(l1_logits, l1_predXYZ, batch['classifyLabel'], batch['label'], batch['objGTJunc3D'], batch['item'], batch['fpsPoint'],'l1')
-        # loss1["l1_mae_loss"] = (loss1['l1_mae_loss'] * batch['std'].unsqueeze(-1)) #+ batch['mean']
-        # loss1["l1_mae_loss"] = loss1["l1_mae_loss"].mean()
-        #
-        # loss={}
-        # loss['loss'] = loss1['l1_loss'] #+ edgeLoss
-        #
-        # loss.update(loss1)
+
         loss = {
             "l1_predXYZ":l1_predXYZ,
             "l1_logits": l1_logits,
         }
-        return loss
-
-class Mytransformer_onlyOneTrans(nn.Module):
-    def __init__(self, cfg):
-        super().__init__()
-        args = cfg['transformer']
-        self.transformer = Transformer(
-            d_model=args['hidden_dim'],
-            dropout=args['dropout'],
-            nhead=args['nheads'],
-            dim_feedforward=args['dim_feedforward'],
-            num_encoder_layers=args['num_encoder_layers'],
-            num_decoder_layers=args['num_decoder_layers'],
-            normalize_before=args['pre_norm'],
-            return_intermediate_dec=True, )
-
-        self.mlpList = nn.Sequential(
-            nn.Conv2d(7, 64, 1, 1), nn.BatchNorm2d(64), nn.ReLU(),
-            nn.Conv2d(64, 64, 1, 1), nn.BatchNorm2d(64), nn.ReLU(),
-            nn.Conv2d(64, 128, 1, 1), nn.BatchNorm2d(128), nn.ReLU(),
-            nn.Conv2d(128, 128, 1, 1), nn.BatchNorm2d(128), nn.ReLU(),
-            nn.Conv2d(128, 256, 1, 1), nn.BatchNorm2d(256), nn.ReLU(),
-        )
-
-        # self.Head1 = Head([512, 256, 128, 64, 32])
-        self.Head1 = Head([256, 128, 64, 32])
-        self.Myloss = Myloss()
-
-    def _reset_parameters(self):
-        for p in self.parameters():
-            if p.dim() > 1:
-                nn.init.xavier_uniform_(p)
-    # 只有一个transformer的消融
-    def forward(self,batch):
-        l0_input = batch['input']
-        # l0_input = l0_input.flatten(start_dim=-2,end_dim=-1)
-        bs,sn,gn,_ = l0_input.shape
-        l0_input = l0_input.permute(0,3,1,2)
-        l1_points = self.mlpList(l0_input)
-        l1_points = l1_points.permute(0,2,3,1)
-        bs,sn,gn,c = l1_points.shape
-        l1_points = l1_points.view(bs*sn,gn,c)
-        word_mask = batch['word_mask'].view(bs*sn,gn)
-        l2_points = self.transformer(l1_points,word_mask,None,None)
-        l2_points = l2_points.view(bs,sn,gn,-1)
-
-        group_points = torch.mean(l2_points,dim=-2)
-        #这里应该给group_points cat些global信息
-        # l3_points = self.transformer2(group_points,None,None,None)
-
-        l3_points = group_points.permute(0,2,1)
-        l1_logits, l1_predXYZ = self.Head1(l3_points, None, batch['fpsPoint'])
-        loss1 = self.Myloss(l1_logits, l1_predXYZ, batch['classifyLabel'], batch['label'], batch['objGTJunc3D'], batch['item'], batch['fpsPoint'],'l1')
-        loss1["l1_mae_loss"] = (loss1['l1_mae_loss'] * batch['std'].unsqueeze(-1)) #+ batch['mean']
-        loss1["l1_mae_loss"] = loss1["l1_mae_loss"].mean()
-
-        loss={}
-        loss['loss'] = loss1['l1_loss'] #+ edgeLoss
-
-        loss.update(loss1)
-
         return loss
 
 class Mytransformer_classify(nn.Module):
@@ -217,7 +147,7 @@ class Mytransformer_classify(nn.Module):
         )
 
         # self.Head1 = Head([512, 256, 128, 64, 32])
-        self.Head = ML.Head([ 256, 128, 64, 32])
+        self.Head = ML.Head([256, 128, 64, 32])
         self.Myloss = ML.Myloss()
     def _reset_parameters(self):
         for p in self.parameters():
@@ -230,12 +160,7 @@ class Mytransformer_classify(nn.Module):
         else:
             return self.forward_test(batch)
     def forward_train(self,batch):
-        # if len(batch['input'].shape)==5:
-        #     a,_,_,_,_ = batch['input'].shape
-        #     batch['input'] = batch['input'].flatten(start_dim=0,end_dim=1)
-        #     batch['classifyLabel'] = batch['classifyLabel'].flatten(start_dim=0,end_dim=1)
         l0_input = batch['input']
-        # l0_input = l0_input.flatten(start_dim=-2,end_dim=-1)
         bs,sn,gn,_ = l0_input.shape
         l0_input = l0_input.permute(0,3,1,2)
         l1_points = self.mlpList(l0_input)
@@ -243,12 +168,12 @@ class Mytransformer_classify(nn.Module):
         bs,sn,gn,c = l1_points.shape
         l1_points = l1_points.view(bs*sn,gn,c)
         word_mask = batch['word_mask'].view(bs*sn,gn)
-        word_mask = None
+        # word_mask = None
         l2_points,_ = self.transformer(l1_points,word_mask,None,None)
         l2_points = l2_points.view(bs,sn,gn,-1)
 
         group_points = torch.mean(l2_points,dim=-2)
-        #这里应该给group_points cat些global信息
+
         l3_points,_ = self.transformer2(group_points,None,None,None)
 
         l3_points = l3_points.permute(0,2,1)
@@ -274,121 +199,12 @@ class Mytransformer_classify(nn.Module):
         bs,sn,gn,c = l1_points.shape
         l1_points = l1_points.view(bs*sn,gn,c)
         word_mask = batch['word_mask'].view(bs*sn,gn)
-        word_mask = None
+        # word_mask = None
         l2_points, _ = self.transformer(l1_points,word_mask,None,None)
         l2_points = l2_points.view(bs,sn,gn,-1)
 
         group_points = torch.mean(l2_points,dim=-2)
-        #这里应该给group_points cat些global信息
         l3_points, _ = self.transformer2(group_points,None,None,None)
-
-        l3_points = l3_points.permute(0,2,1)
-
-        l1_logits = self.Head(l3_points)
-
-        loss={"l1_logits":l1_logits}
-
-        return loss
-
-
-## 我想尝试第二个attention只attention一个junction和其他的构成的candidate之间的关系
-## 但是没调通， 就先把模型放在这里
-class Mytransformer_classify_new(nn.Module):
-    def __init__(self,cfg):
-        super().__init__()
-        args = cfg['transformer']
-        self.transformer = Transformer(
-            d_model=args['hidden_dim'],
-            dropout=args['dropout'],
-            nhead=args['nheads'],
-            dim_feedforward=args['dim_feedforward'],
-            num_encoder_layers=args['num_encoder_layers'],
-            num_decoder_layers=args['num_decoder_layers'],
-            normalize_before=args['pre_norm'],
-            return_intermediate_dec=True,)
-
-        self.transformer2 = Transformer(
-            d_model=args['hidden_dim'],
-            dropout=args['dropout'],
-            nhead=args['nheads'],
-            dim_feedforward=args['dim_feedforward'],
-            num_encoder_layers=args['num_encoder_layers'],
-            num_decoder_layers=args['num_decoder_layers'],
-            normalize_before=args['pre_norm'],
-            return_intermediate_dec=True,)
-
-        self.mlpList = nn.Sequential(
-            nn.Conv2d(6, 64, 1, 1),  nn.BatchNorm2d(64), nn.ReLU(),
-            nn.Conv2d(64, 64, 1, 1), nn.BatchNorm2d(64), nn.ReLU(),
-            nn.Conv2d(64, 128, 1, 1), nn.BatchNorm2d(128), nn.ReLU(),
-            nn.Conv2d(128, 128, 1, 1), nn.BatchNorm2d(128), nn.ReLU(),
-            nn.Conv2d(128, 256, 1, 1), nn.BatchNorm2d(256), nn.ReLU(),
-        )
-
-        # self.Head1 = Head([512, 256, 128, 64, 32])
-        self.Head = ML.Head([ 256, 128, 64, 32])
-        self.Myloss = ML.Myloss()
-    def _reset_parameters(self):
-        for p in self.parameters():
-            if p.dim() > 1:
-                nn.init.xavier_uniform_(p)
-
-    def forward(self, batch, mode='train'):
-        if mode=='train':
-            return self.forward_train(batch)
-        else:
-            return self.forward_test(batch)
-    def forward_train(self,batch):
-        if len(batch['input'].shape)==5:
-            a,_,_,_,_ = batch['input'].shape
-            batch['input'] = batch['input'].flatten(start_dim=0,end_dim=1)
-            batch['classifyLabel'] = batch['classifyLabel'].flatten(start_dim=0,end_dim=1)
-        l0_input = batch['input']
-        # l0_input = l0_input.flatten(start_dim=-2,end_dim=-1)
-        bs,sn,gn,_ = l0_input.shape
-        l0_input = l0_input.permute(0,3,1,2)
-        l1_points = self.mlpList(l0_input)
-        l1_points = l1_points.permute(0,2,3,1)
-        bs,sn,gn,c = l1_points.shape
-        l1_points = l1_points.view(bs*sn,gn,c)
-        word_mask = batch['word_mask'].view(bs*sn,gn)
-        word_mask = None
-        l2_points = self.transformer(l1_points,word_mask,None,None)
-        l2_points = l2_points.view(bs,sn,gn,-1)
-
-        group_points = torch.mean(l2_points,dim=-2)
-        #这里应该给group_points cat些global信息
-        l3_points = self.transformer2(group_points,None,None,None)
-
-        l3_points = l3_points.permute(0,2,1)
-
-        l1_logits = self.Head(l3_points)
-        loss1 = self.Myloss(l1_logits, batch['classifyLabel'],'l1')
-
-        loss={}
-        loss['loss'] = loss1['l1_loss'] #+ edgeLoss
-        #
-        loss.update(loss1)
-
-        return loss
-        #
-
-    def forward_test(self,batch):
-        l0_input = batch['input']
-        # l0_input = l0_input.flatten(start_dim=-2,end_dim=-1)
-        bs,sn,gn,_ = l0_input.shape
-        l0_input = l0_input.permute(0,3,1,2)
-        l1_points = self.mlpList(l0_input)
-        l1_points = l1_points.permute(0,2,3,1)
-        bs,sn,gn,c = l1_points.shape
-        l1_points = l1_points.view(bs*sn,gn,c)
-        word_mask = batch['word_mask'].view(bs*sn,gn)
-        l2_points = self.transformer(l1_points,word_mask,None,None)
-        l2_points = l2_points.view(bs,sn,gn,-1)
-
-        group_points = torch.mean(l2_points,dim=-2)
-        #这里应该给group_points cat些global信息
-        l3_points = self.transformer2(group_points,None,None,None)
 
         l3_points = l3_points.permute(0,2,1)
 

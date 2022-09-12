@@ -11,7 +11,7 @@ class classify(nn.Module):
         last_channel = mlp[0]
         self.mlp = []
         for out_channel in mlp[1:]:
-            self.mlp.append(nn.Conv1d(last_channel,out_channel, 1, 1)) # 这里还是用了conv1d 而不是Linear，
+            self.mlp.append(nn.Conv1d(last_channel,out_channel, 1, 1))  # use conv1D
             if out_channel == mlp[-1]:
                 break
             self.mlp.append(nn.BatchNorm1d(out_channel))
@@ -23,21 +23,3 @@ class classify(nn.Module):
         X = self.mlp(X)
         return X
 
-
-class Mlp(nn.Module):
-    def __init__(self, mlp):
-        super(Mlp, self).__init__()
-        last_channel = mlp[0]
-        self.mlp = []
-        for out_channel in mlp[1:]:
-            self.mlp.append(nn.Linear(last_channel,out_channel)) # 这里还是用了conv1d 而不是Linear，
-            if out_channel == mlp[-1]:
-                break
-            # self.mlp.append(nn.BatchNorm1d(out_channel))
-            # self.mlp.append(nn.ReLU())
-            self.mlp.append(nn.Dropout(0.3))
-            last_channel = out_channel
-        self.mlp = nn.Sequential(*self.mlp)
-    def forward(self, X):
-        X = self.mlp(X)
-        return X

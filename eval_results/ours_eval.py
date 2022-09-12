@@ -1,25 +1,28 @@
-
+import sys
+# print(sys.path)
+# sys.path.append("/data/code/LC2WF/eval_results")
+# sys.path.append("./")
 from graph import Graph
-
+# import open3d
+from misc.colors import colormap_255, semantics_cmap
 import numpy as np
 import os
-
+import json
 import glob
-
+from itertools import permutations
+import copy
 from metric_wed import WED
 import json
+from functools import cmp_to_key
 from metric import edgeSap,getsap
 import time
+import shutil
 '''
 
-
-
+eval ours result
+save some results
+open3d visualize
 '''
-
-# change path here
-YOUR_FINAL_OUTPUTPATH = "../data/finalOut"
-YOUR_WIREFRAME_GT_PATH = "../data/house"
-
 def cmp(x,y):
     if x[1]<y[1]:
         return -1
@@ -87,9 +90,11 @@ def readWireframeGT(name):
 
 
 def eval_metric(name,predXYZ,predConnect,wireframeJunc,wireframeLine,mean,std):
-    OBJGT_PATH = YOUR_WIREFRAME_GT_PATH
+    OBJGT_PATH = "/data/obj_data/obj_vt/house"
     xx,_,yy = readWireframeGT(os.path.join(OBJGT_PATH,name.replace('.json','.obj')))
     mean,std = np.array(mean,dtype=np.float64),np.array(std,dtype=np.float64)
+    # wireframeJunc = np.array(wireframeJunc,dtype=np.float64)
+    # wireframeJunc = (wireframeJunc * std) + mean[None,:]
     wed = WED(wireframeJunc=wireframeJunc,wireframeLine=wireframeLine,predJunc=predXYZ,predEdge=predConnect)
     return wed.match_junc()
 
@@ -104,14 +109,13 @@ def dynamicMatchV2():
     all_time = 0
     FinalOutPath = "./finalOutOBJ"
     os.makedirs(FinalOutPath,exist_ok=True)
-    json_list = sorted(glob.glob(YOUR_FINAL_OUTPUTPATH+"/*.json"))
-
+    json_list = sorted(glob.glob("./log/outputPredWireframe/*.json"))
     LINE_NMS_THRESH = 20
     CONNECT_THRESH = 0.30
     MERGE_THRESH = 0.2
 
 
-
+    # direct output
     Jap3 = getsap(s=3,nms_threshhold=1,confi_thresh=0)
     Jap5 = getsap(s=5,nms_threshhold=1,confi_thresh=0)
     Jap7 = getsap(s=7,nms_threshhold=1,confi_thresh=0)
@@ -138,8 +142,8 @@ def dynamicMatchV2():
     Eap5_nms_post = edgeSap(s=5,nms_threshhold=0,confi_thresh=0)
 
 
-    eval_wed = [] #before nms
-    eval_wed_nms = [] #after nms
+    eval_wed = []  # before nms
+    eval_wed_nms = []  # after nms
     eval_wed_postprocess = [] # after postprocess
     
 
@@ -154,7 +158,6 @@ def dynamicMatchV2():
         name = os.path.split(js)[-1]
         VIS_LIST = []
         f = open(js,'r')
-        print(ii,js)
 
         ### read data ###
         data = json.load(f)
@@ -167,8 +170,8 @@ def dynamicMatchV2():
         wireframeLine = data['wireframeLine']
         mean,std = data['mean'], data['std']
         color = [tuple(np.random.randint(0,255,3,dtype=int).tolist()) for _ in range(wireframeJunc.shape[0])] + [(0,0,0)]
+        # inv-normalize
 
-        #inv-normalize
         predXYZ = (predXYZ * np.array(std))  + np.array(mean)[None,:]
         wireframeJunc = (wireframeJunc*np.array(std)) + np.array(mean)[None,:]
 
@@ -177,11 +180,15 @@ def dynamicMatchV2():
 
 
         merge,connect,_,disconnect,lost = prob[0],prob[1],prob[2],prob[3],prob[4]
-        print(merge.max(),merge.min())
+
         Connect_thresh = CONNECT_THRESH
         Merge_Thresh = MERGE_THRESH
-        selectIdx = (merge>Merge_Thresh).nonzero()[0] # 被判定为连接的 combination
-
+        selectIdx = (merge>Merge_Thresh).nonzero()[0]  #  classify to connected
+        if len(selectIdx)==0:
+            print("find no edges in {}:{}".format(str(ii),js))
+            print("min/max merge:{:.2f},{:.2f}".format(merge.min(),merge.max()))
+        else:
+            print("process {}:{}".format(str(ii), js))
         selectCombine = combine[selectIdx]
         
 
@@ -195,7 +202,7 @@ def dynamicMatchV2():
         output_vertex_size_before_process.append(predXYZ.shape[0])
         output_edge_size_before_process.append(sC.__len__())
 
-        Jap3(predXYZ,predXYZconfi,wireframeJunc) #predXYZ and wireframe junc inv-normalize
+        Jap3(predXYZ,predXYZconfi,wireframeJunc)  # predXYZ and wireframe junc inv-normalize
         Jap5(predXYZ,predXYZconfi,wireframeJunc)
         Jap7(predXYZ,predXYZconfi,wireframeJunc)
 
@@ -212,8 +219,10 @@ def dynamicMatchV2():
         eval_wed.append(eval_metric(name,predXYZ,sC,wireframeJunc.tolist(),wireframeLine,mean,std))
 
         # results after line nms
+        # save obj
         g_before_nms = Graph(predXYZ,sC,sW,predXYZconfi,line_nms_thresh=LINE_NMS_THRESH)
         g_before_nms.save_clean_obj(os.path.join(BEFORE_PROCESS_PATH,name.replace(".json",".obj")))
+
         g_before_nms.lineNms()
         vertex_before_nms,edge_before_nms = g_before_nms.ret_clean_data()
         eval_wed_nms.append(eval_metric(name,vertex_before_nms,edge_before_nms,wireframeJunc,wireframeLine,mean,std))
@@ -235,6 +244,8 @@ def dynamicMatchV2():
         t1 = time.time()
         FF = list(zip(selectIdx.tolist(),merge[selectIdx].tolist()))
         FF = sorted(FF,key=lambda x:x[1],reverse=True)
+
+
         selectIdx, _ = zip(*FF)
         selectCombine = combine[np.array(selectIdx)]
         junc_to_delete=[]
@@ -265,10 +276,10 @@ def dynamicMatchV2():
         VIS_LIST.append(g.ret_clean_data())
         g.lineNms()
         VIS_LIST.append(g.ret_clean_data())
-        # g.juncNMS() # can improve little
+        # g.juncNMS()
 
         # g.removeDegreeOne()
-        g.removeDegreeOneV2() #移去两边度为1
+        g.removeDegreeOneV2() # remove edge both side degree=1
         all_time = all_time + time.time()-t1
         # g.cal_dis()
 
@@ -297,27 +308,6 @@ def dynamicMatchV2():
         output_vertex_size.append(len(predXYZ))
         output_edge_size.append(len(predConnect))
         eval_wed_postprocess.append(eval_metric(name,predXYZ,predConnect,wireframeJunc.tolist(),wireframeLine,mean,std))
-
-        #vis pred
-        # predColor = [color[i] for i in label]
-        # predColor = np.array(predColor)/255
-
-        # junction_set = open3d.geometry.PointCloud()
-        # junction_set.points = open3d.utility.Vector3dVector(predXYZ)
-        # junction_set.colors = open3d.utility.Vector3dVector(predColor)
-        # line_colors = np.repeat((np.array((255,0,0))/255).reshape(-1,3), len(predConnect),axis=0)
-        # line_set = open3d.geometry.LineSet()
-        # line_set.points = open3d.utility.Vector3dVector(predXYZ)
-        # line_set.lines = open3d.utility.Vector2iVector(predConnect)
-        # line_set.colors = open3d.utility.Vector3dVector(line_colors)
-
-        # vis = open3d.visualization.Visualizer()
-        # vis.create_window()
-        # vis.add_geometry(junction_set)
-        # vis.add_geometry(line_set)
-        # vis.get_render_option().point_size = 15
-        # vis.run()
-        # vis.destroy_window()
 
 
     Jap3_result = Jap3.get_RPF()
@@ -350,7 +340,7 @@ def dynamicMatchV2():
     wed_nms_post_result = np.array(eval_wed_postprocess).mean(axis=0)
     print("""
     #ours:
-    before nms, junc confi thresh 0.8, connect confi {}
+    before post-process, junc confi thresh 0.8, connect confi {}
     vtx {:.4f} {:.4f} {:.4f} {:.4f}
     line {:.4f} {:.4f} {:.4f} {:.4f}
     junc AP:
@@ -365,21 +355,6 @@ def dynamicMatchV2():
     +junc and dist || +edge and dist || -edge and dist ||   total      ||  edge total
      {:.4f} {:.4f}    {:.4f} {:.4f}     {:.4f} {:.4f}    {:.4f} {:.4f}  || {:.4f} {:.4f}
 
-    after line nms, threshhold {}
-    vtx {:.4f} {:.4f} {:.4f} {:.4f}
-    line {:.4f} {:.4f} {:.4f} {:.4f}
-    junc AP:
-    ap recall 3 5 7 and mean: {:.4f} {:.4f}  {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f}
-
-    sAP
-    sAP,recall 5 7 10 and mean: {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f}
-
-    ##Wed
-    # dist/20
-    gt wireframe junc/line {} {}
-    pred junc/line {} {}
-    +junc and dist || +edge and dist || -edge and dist ||   total      ||  edge total
-     {:.4f} {:.4f}    {:.4f} {:.4f}     {:.4f} {:.4f}    {:.4f} {:.4f}  || {:.4f} {:.4f}
 
     after post-process
     vtx {:.4f} {:.4f} {:.4f} {:.4f}
@@ -412,22 +387,7 @@ def dynamicMatchV2():
     wed_result[7], wed_result[10]/20,
     wed_result[8]+wed_result[5], wed_result[11]/20 + wed_result[4]/20,
     wed_result[8], wed_result[11]/20 ,    
-    LINE_NMS_THRESH,
-    *Jap3_nms_result['pred_stat'],*Eap5_nms_result['pred_stat'],
-    Jap3_nms_result['AP'],Jap3_nms_result['recall'],Jap5_nms_result['AP'],Jap5_nms_result['recall'],Jap7_nms_result['AP'],Jap7_nms_result['recall'],
-    (Jap3_nms_result['AP']+Jap5_nms_result['AP']+Jap7_nms_result['AP'])/3,
-    (Jap3_nms_result['recall']+Jap5_nms_result['recall']+Jap7_nms_result['recall'])/3,
 
-    Eap5_nms_result['AP'],Eap5_nms_result['recall'],Eap7_nms_result['AP'],Eap7_nms_result['recall'],Eap10_nms_result['AP'],Eap10_nms_result['recall'],
-    (Eap5_nms_result['AP']+Eap7_nms_result['AP']+Eap10_nms_result['AP'])/3,
-    (Eap5_nms_result['recall']+Eap7_nms_result['recall']+Eap10_nms_result['recall'])/3,
-
-    wed_nms_result[0],wed_nms_result[1],wed_nms_result[2],wed_nms_result[3],
-    wed_nms_result[5], wed_nms_result[4]/20,
-    wed_nms_result[6], wed_nms_result[9]/20,
-    wed_nms_result[7], wed_nms_result[10]/20,
-    wed_nms_result[8]+wed_nms_result[5], wed_nms_result[11]/20 + wed_nms_result[4]/20,    
-    wed_nms_result[8], wed_nms_result[11]/20,
     *Jap3_nms_post_result['pred_stat'],*Eap5_nms_post_result['pred_stat'],
     Jap3_nms_post_result['AP'],Jap3_nms_post_result['recall'],Jap5_nms_post_result['AP'],Jap5_nms_post_result['recall'],Jap7_nms_post_result['AP'],Jap7_nms_post_result['recall'],
     (Jap3_nms_post_result['AP']+Jap5_nms_post_result['AP']+Jap7_nms_post_result['AP'])/3,
@@ -444,22 +404,7 @@ def dynamicMatchV2():
     wed_nms_post_result[8]+wed_nms_post_result[5], wed_nms_post_result[11]/20 + wed_nms_post_result[4]/20,   
     wed_nms_post_result[8], wed_nms_post_result[11]/20,   
     ))
-    exit()
-    Jap3.save_result("./result/Jap3.json")
-    Jap5.save_result("./result/Jap5.json")
-    Jap7.save_result("./result/Jap7.json")
-    Eap5.save_result("./result/Eap5.json")
-    Eap7.save_result("./result/Eap7.json")
-    Eap10.save_result("./result/Eap10.json")
 
-    Jap3_nms_post.save_result("./result/Jap3_post.json")
-    Jap5_nms_post.save_result("./result/Jap5_post.json")
-    Jap7_nms_post.save_result("./result/Jap7_post.json")
-    Eap5_nms_post.save_result("./result/Eap5_post.json")
-    Eap7_nms_post.save_result("./result/Eap7_post.json")
-    Eap10_nms_post.save_result("./result/Eap10_post.json")
-    print(time.time()-start_time)
-    print(all_time,len(json_list))
 
 if __name__=="__main__":
     dynamicMatchV2()

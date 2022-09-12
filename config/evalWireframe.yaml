@@ -15,17 +15,19 @@ dataset:
   sample_number: 512
 
   LineCloud_path: LC2WF_data/LineCloud_0130_P123
-  PredJunc_path: ./log/outputPredJunc_retrained
+  PredJunc_path: ./log/outputPredJunc
 
 
 seed: 1555
-mode: "train"
-write_pred_wireframe: False
-output_path: ./log/outputPredWireframe_retrained
+
+mode: "eval"
+
+write_pred_wireframe: True
+output_path: ./log/outputPredWireframe
 
 
 model:
-  load_model: ''
+  load_model: './pretrained/edge.pth'
 
 Net:
   input_dim: 6

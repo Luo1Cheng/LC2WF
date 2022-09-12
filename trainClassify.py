@@ -14,19 +14,22 @@ from utils.dup_stdout_manager import DupStdoutFileManager
 from dataset import classifyDataset
 from modeling import build_model
 from utils.utils import optimizer_define, load_model, save_model, AverageMeter
-
+import argparse
 import torch.nn.functional as F
 from itertools import permutations
 import json
-def TrainInit():
-    pyFileName = os.path.splitext(os.path.basename(__file__))[0]
+def TrainInit(yamlName):
+    if yamlName=="":
+        pyFileName = os.path.splitext(os.path.basename(__file__))[0]
+    else:
+        pyFileName = yamlName
     yamlFileName = "config/{}.yaml".format(pyFileName)
     if not os.path.exists(yamlFileName):
         raise ValueError("{} not found".format(yamlFileName))
     with open(yamlFileName, 'r') as f:
         cfg = yaml.load(f, Loader=yaml.FullLoader)
     seed = cfg['seed']
-    # ---------------------init------------------------
+    # ---------------------Init log------------------------
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
@@ -89,10 +92,10 @@ import argparse
 
 
 if __name__=="__main__":
-    parser = argparse.ArgumentParser(description='Process some integers.')
-    parser.add_argument('-t','--temp_thresh', type=int, help='an integer for the accumulator',default=-1)
+    parser = argparse.ArgumentParser(description="Process some string")
+    parser.add_argument("--yamlName", type=str, default="", help="input the yaml file name", required=False)
     args = parser.parse_args()
-    cfg = TrainInit()
+    cfg = TrainInit(args.yamlName)
     log_path = cfg['log_path']
     with DupStdoutFileManager(os.path.join(log_path, 'logfile.txt')) as _:
         print(json.dumps(cfg,indent=4,ensure_ascii=False))
@@ -130,10 +133,11 @@ if __name__=="__main__":
 
         # --------------------------Start Training-----------------------------
         print('---------------Starting training...------------------')
-        start_epoch=0
+        start_epoch = 0
         end_epoch = cfg['train']['optim_step'][-1]
-        TRAIN=False
-        if TRAIN:
+        best_AP = 0
+        if cfg['mode']=="train":
+            print("\033[31m#####Training connectivity model begins#####\033[0m")
             for epoch in range(start_epoch + 1, end_epoch + 1):
                 print('epoch',epoch)
                 t1 = time.time()
@@ -142,13 +146,20 @@ if __name__=="__main__":
 
                 scheduler.step(epoch=epoch)
                 loss = log_dict_train['loss']
-                if (epoch%5==0) or (epoch>=15) or (epoch==1):
+                if (epoch % 2 == 0) or (epoch >= 15) or (epoch == 1):
                     t1 = time.time()
-                    validCls(model_parallel, test_loader, log_path)
+                    this_ap = validCls(model_parallel, test_loader, log_path, cfg)
                     t2 = time.time()
                     print("valid {} sec".format((t2 - t1) / 60))
                     save_model(os.path.join(log_path, 'saved_models', 'model_epoch{}.pth'.format(epoch)), epoch, loss,
                                model)
-        else:
+                    if this_ap > best_AP:
+                        best_AP = this_ap
+                        save_model(os.path.join(log_path, 'saved_models', "edge_best"), epoch,
+                                   loss, model)
+        elif cfg['mode']=="eval":
+            print("\033[31m#####Predicting connectivity begins#####\033[0m")
             for epoch in range(0, 1):
                 validCls(model_parallel, test_loader, log_path, cfg)
+        else:
+            print("\033[31m#####set the right mode in yaml file#####\033[0m")

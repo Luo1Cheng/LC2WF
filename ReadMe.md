@@ -1,3 +1,5 @@
+
+
 # LC2WF: Learning to Construct 3D Building Wireframes from 3D Line Clouds
 
 ![intro](fig/mtd_overview_v2.jpg)
@@ -10,17 +12,16 @@ Created by Yicheng Luo*, Jing Ren\*,  Xuefei Zhe, Di Kang, Yajing Xu, Peter Wonk
 
 
 
-[[arxiv]](https://arxiv.org/abs/2208.11948)  [[Dataset]](#pretrained-models-and-data) [[Models]](#pretrained-models-and-data)  [[Suppl]]()
+[[arxiv]](https://arxiv.org/abs/2208.11948)  [[Dataset]](#pretrained-models-and-data) [[Models]](#pretrained-models-and-data)  [[Suppl]]() [[WebPage]]()
 
 
 
 # Requirements
 
 * torch   1.8.0
-
 * torchvision 0.9.0
-
 * cuda: 10.0
+* python 3.8.8
 
 
 
@@ -33,7 +34,7 @@ Created by Yicheng Luo*, Jing Ren\*,  Xuefei Zhe, Di Kang, Yajing Xu, Peter Wonk
 
 
 
-# Installation
+# Evaluation
 
 1. Clone repository
 
@@ -43,7 +44,67 @@ git clone https://github.com/Luo1Cheng/LC2WF.git
 
 
 
-2. Download data and pretrained model.
+2. Download line cloud data and pre-trained model.
+
+
+
+3. Unzip files
+
+```
+unzip LC2wf_data.zip
+unzip pretrained.zip
+```
+
+
+
+4. Your directory will be like
+
+|----LC2WF_data
+
+|    |----house
+
+|    |----LineCloud_0130_P123
+
+|    |----test.txt
+
+|    |----train.txt
+
+|----pretrained
+
+|    |----junction.pth
+
+|    |----edge.pth
+
+|...
+
+
+
+5. To evaluate the model:
+
+```shell
+python train.py --yamlName evalJunc
+python trainClassify.py --yamlName evalWireframe
+cd eval_results
+python ours_eval.py
+```
+
+
+
+6. The predicted wireframe obj files are in **./eval_results/finalOutOBJ**. You can open them with MeshLab
+
+
+
+# Training
+
+1. Clone repository
+
+```
+git clone https://github.com/Luo1Cheng/LC2WF.git 
+```
+
+
+
+2. Download line cloud data.
 
    
 
@@ -51,18 +112,44 @@ git clone https://github.com/Luo1Cheng/LC2WF.git
 
 ```
 unzip LC2wf_data.zip
-unzip pretrained.zip
 ```
 
-5. To evaluate the model:
 
+
+4. Train junction prediction model first
+
+```python
+python train.py --yamlName train
 ```
-python train.py
+
+
+
+5. Change the **load_model** in **config/genPredJunc.yaml** to your **junction_best.pth** which will be saved in log/***/saved_models folder.
+
+
+
+6. Generate predicted Junction of train&test dataset
+
+```python
+python train.py --yamlName genPredJunc
+```
+
+
+
+7. Train connectivity prediction model
+
+```python
 python trainClassify.py
-cd eval_results
-python ours_eval.py
 ```
 
 
 
-6. Your can see *.obj results in ./eval_results/finalOutOBJ, you can open them with MeshLab
+The best model will be saved in log/***/saved_models folder.
+
+
+
+# License
+
+
+
+# Acknowledgements

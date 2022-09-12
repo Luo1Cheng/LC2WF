@@ -1,6 +1,6 @@
 import numpy as np
 '''
-OURS 后处理主要使用的代码
+OURS post-processing
 DATE: 2022-03-16
 '''
 
@@ -24,21 +24,21 @@ class Graph:
         self.line_nms_thresh = line_nms_thresh
         self.junc_hamming_thresh = 3
     def removeDegreeOne(self):
-        # remove 两边度为1的边
+        # remove both side degree=1
         for i,(e1,e2) in enumerate(self.edge):
             if self.vert_degree[e1]<=1 and self.vert_degree[e2]<=1:
                 self.edge_store[i]=0
         self.updateAdjacency()
 
     def removeDegreeOneV2(self):
-        # remove 1边度为1的边
+        # remove one side degree=1
         for i,(e1,e2) in enumerate(self.edge):
             if self.vert_degree[e1]<=1 or self.vert_degree[e2]<=1:
                 self.edge_store[i]=0
         self.updateAdjacency()
  
     def updateAdjacency(self):
-        #根据边的store信息, 更新邻接矩阵，让邻接矩阵之储存没有删掉的边
+        # update Adjacency
         self.edge = [self.edge[i] for i,value in enumerate(self.edge_store) if value==1]
         self.edgeWeight = [self.edgeWeight[i] for i,value in enumerate(self.edge_store) if value==1]
         self.Adjacency = np.zeros((len(self.vert),len(self.vert)))
@@ -95,11 +95,8 @@ class Graph:
                 if same_line_index_i == i:
                     continue
                 else:
-                    if np.linalg.norm(np.array(self.vert[i])-np.array(self.vert[same_line_index_i]))<30: #这是原始论文的值
-                    # if np.linalg.norm(np.array(self.vert[i])-np.array(self.vert[same_line_index_i]))<20:
+                    if np.linalg.norm(np.array(self.vert[i])-np.array(self.vert[same_line_index_i]))<30:  # maybe 20?
                         dropped_junc_index.append(same_line_index_i)
-                        # dropped的时候也许需要把drop的连接关系merge一下？ 
-                        # 发现merge反而会影响wed效果, 于是不再merge, 想得到原始的论文指标,需要merge
                         # xxx = self.Adjacency[same_line_index_i]
                         # yyy = xxx.nonzero()[0] #yyy和谁相连
                         # for kk in yyy:
@@ -113,14 +110,7 @@ class Graph:
                 self.edge_store[i]=0
         self.updateAdjacency()
 
-    def cal_dis(self):
-        def line_to_line_distV1(x,y): #基于overlap merge一些edge
-            pass
-        vert = np.array(self.vert,dtype=np.float64)
-        edge = self.retPredEdge()
-        edge = np.array(edge)
-        data = vert[edge,:]
-    
+
 
     def save_clean_obj(self,outpath):
         predEdge = self.retPredEdge()

@@ -1,10 +1,8 @@
-import  torch.utils.data as data
+import torch.utils.data as data
 import torch
 import numpy as np
 import os
-import functools
 import json
-from modeling.utils import *
 from itertools import permutations,combinations
 import torch.nn.functional as F
 from sklearn.decomposition import PCA
@@ -63,7 +61,7 @@ def readWireframeGT(name):
 
 
 def checkPointV2(fpsPoints, label, wireframeGT, LineIdx, name):
-    # 主要目的是检查fps抽样下label都能不能打到
+    # check label recall under fps sample
     ret = {
         "fpsPoints": fpsPoints,
         "label": label,
@@ -98,7 +96,7 @@ def visDynamicStep2(predXYZ, predLabel, wireframeJunc, wireframeLine, edge, labe
         "predLabel":predLabel,
         "wireframeJunc":wireframeJunc,
         "wireframeLine":wireframeLine,
-        "edge":edge, #为预测的线的连接关系
+        "edge":edge, # connectivity of pred edge
         "label":label,
     }
     b = json.dumps(out)
@@ -111,7 +109,7 @@ def visDynamicStep3(predXYZ, wireframeJunc, wireframeLine, edge, label, fpsPoint
         "predXYZ":predXYZ,
         "wireframeJunc":wireframeJunc,
         "wireframeLine":wireframeLine,
-        "edge":edge, #为预测的线的连接关系
+        "edge":edge, # connectivity of pred edge
         "fpsPoint":fpsPoint,
         "label":label,
     }
@@ -134,7 +132,7 @@ def visDynamicStep3_Figure2(predXYZ, wireframeJunc, wireframeLine, edge, label, 
         "predXYZ":predXYZ,
         "wireframeJunc":wireframeJunc,
         "wireframeLine":wireframeLine,
-        "edge":edge, #为预测的线的连接关系
+        "edge":edge, # connectivity of pred edge
         "fpsPoint":fpsPoint,
         "label":label,
     }
@@ -224,10 +222,7 @@ def writeGroupJsonForFigure2(groupJunc3D, groupMylabel, groupSegLabel, groupJunc
 
             for l1,l2 in connect:
                 fw.write("l {} {}\n".format(l1+1,l2+1))
-    # b = json.dumps(ret)
-    # fw = open(os.path.join(outDir,name+".json"), 'w')
-    # fw.write(b)
-    # fw.close()
+
 
 
 def random_scale_point_cloud(batch_data, scale_low=0.8, scale_high=1.25):
@@ -271,7 +266,7 @@ class postProcess:
     def __init__(self,thresh=0.5,nms_threshhold=5):
         self.thresh=thresh
         self.nms_threshhold=nms_threshhold
-        self.disThresh=7 # 预测点和实际点匹配的半径
+        self.disThresh=7 # dis threshold of pred Junc matching with Gt Junc
     def nms(self,pred,confi,*args):
         all = list(zip(pred, confi, *args))
         pred, confi, *args = zip(*sorted(all, reverse=True, key=lambda x: x[1]))
@@ -304,8 +299,7 @@ class postProcess:
         return pred, confi, *args
 
     def assignLabel(self,pred,wireframejunc,confi):
-        # pred, wireframejunc = np.array(pred,dtype=np.float64),np.array(wireframejunc,dtype=np.float64) # (N,3), (L,3)
-        pred, wireframejunc = torch.Tensor(pred).float(), torch.Tensor(wireframejunc).float()
+        pred, wireframejunc = torch.Tensor(pred).float(), torch.Tensor(wireframejunc).float() # (N,3), (L,3)
         confi = torch.Tensor(confi).float()
         dist = pred[:,None,:] - wireframejunc[None,:,:]
         sqr_dist = torch.sum(dist**2,dim=-1) # N,L
@@ -317,7 +311,6 @@ class postProcess:
         label[selectedInd] = minIndex[selectedInd]
         # selectedPred,selectedLabel,selectedConfi = pred[selectedInd],minIndex[selectedInd],confi[selectedInd]
         return pred,label,confi
-
 
 
 class LineDataset(data.Dataset):
@@ -338,7 +331,7 @@ class LineDataset(data.Dataset):
 
         os.makedirs(self.temp_fpsPoint_path,exist_ok=True)
 
-        if split=="train":
+        if split=="train" or split=="valid":
             x = param['train_path']
             with open(x, 'r') as fr:
                 readlines = fr.readlines()
@@ -357,7 +350,6 @@ class LineDataset(data.Dataset):
         self.temp=[]
         self.mean = [0.12249484, -0.3440005,  70.5140106]
         self.std = 266.2135032067564
-        self.temp_1 =[]
         self.if_cat = param['if_cat']
         self.cat_normal = param['cat_normal']
         self.normal_patch_line = param['normal_patch_line']
@@ -375,10 +367,10 @@ class LineDataset(data.Dataset):
         X, Mylabel,classifyLabel, objGTJunc3D, fpsPoint, mean, std, name, objLineIdx,rec_label,word_mask,fpsLabel = zip(*batch)
         item = list(range(len(X)))
         ret =  {
-            "item":item,
+            "item": torch.Tensor(item).long(),
             "input": torch.vstack(X),
             "fpsPoint": torch.vstack(fpsPoint),
-            "label": torch.vstack(Mylabel).long(),
+            "label": torch.vstack(Mylabel).long(),  # 16,256
             "classifyLabel":torch.vstack(classifyLabel),
             "objGTJunc3D": objGTJunc3D,
             "mean":torch.Tensor(mean).float(),
@@ -398,7 +390,6 @@ class classifyDataset(data.Dataset):
         self.split = split
         self.root_path = param['LineCloud_path']
         self.PredJunc_path = param['PredJunc_path']
-
         self.use_real = param['use_real']
 
         if split=="train":
@@ -416,27 +407,21 @@ class classifyDataset(data.Dataset):
 
         print('==> initializing  {} data.'.format(split))
         print('Loaded {} {} samples'.format(len(self.obj_list), split))
-        self.max_len = 3000
         self.postprocess = postProcess(thresh=0.85)
+
         self.mean = [0.12249484, -0.3440005,  70.5140106]
         self.std = 266.2135032067564
         self.if_cat = param['if_cat']
+        self.sample_number = param['sample_number']
     from  ._ClassifyMethod import ClassifyLineStaticAndDynamic,ClassifyLineTestDynamicForTest
     def __len__(self):
-
         return len(self.obj_list)
 
     def __getitem__(self, item):
-
         if self.split=='train':
-            # return self.ClassifyLineStaticAndDynamicForReal(item)  # static+dynamic for train
-            return self.ClassifyLineStaticAndDynamic(item) # static+dynamic for train
+            return self.ClassifyLineStaticAndDynamic(item)
         else:
-            # return self.ClassifyLineTestDynamicForTestForReal(item)
-            return self.ClassifyLineTestDynamicForTest(item)  #
-
-
-
+            return self.ClassifyLineTestDynamicForTest(item)
 
 
 
@@ -456,7 +441,7 @@ class classifyDataset(data.Dataset):
             "std":torch.Tensor(std).float(),
             "name":name,
             "objLineIdx":objLineIdx,
-            "predXYZconfi":predXYZconfi,#torch.vstack(predXYZconfi),
+            "predXYZconfi":predXYZconfi,  # torch.vstack(predXYZconfi),
             "predXYZ":predXYZ,
             "combine":combine,
             "word_mask":torch.vstack(word_mask),

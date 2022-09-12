@@ -1,13 +1,11 @@
 import torch
 import numpy as np
-from itertools import permutations,combinations
 import os
 import torch.nn.functional as F
 from progress.bar import Bar
 from utils.utils import AverageMeter
 import json
-import dataset as datasetPY
-import modeling.utils as MU
+
 def nms(pred,confi,*args,**kwargs):
     all = list(zip(pred,confi,*args))
     pred,confi,*args = zip(*sorted(all, reverse=True, key=lambda x:x[1]))
@@ -36,7 +34,7 @@ def nms(pred,confi,*args,**kwargs):
 def line_nms(pred,confi,*args,**kwargs):
     # pred: N,2,3
     def line_to_line_dist(xxx):
-        # 输入 两个array  (N0,2,2) 和 (N1,2,2) ; (2,2)分别是 [(x1,y1),(x2,y2)]
+        # inpu two array  (N0,2,2) 和 (N1,2,2) ; (2,2): [(x1,y1),(x2,y2)]
         diff = ((xxx[:, None, :, None] - xxx[:, None]) ** 2).sum(-1)
         # print(diff.shape)
         diff = np.sqrt(diff)
@@ -78,7 +76,7 @@ def confMask(pred,confi,*args):
     return pred,confi,*args
 
 def juncRecall(predXYZ,confi,wireframeJunc,mean,max,fpsPoint):
-    # 反归一化
+    # inv-normalize
     predXYZ = (predXYZ+fpsPoint) * max + mean
     wireframeJunc = torch.Tensor(wireframeJunc).to(max.device) * max + mean
 
@@ -86,7 +84,7 @@ def juncRecall(predXYZ,confi,wireframeJunc,mean,max,fpsPoint):
     predXYZ = predXYZ[0].tolist()
     confi = confi[0].tolist()
     predXYZ,confi = nms(predXYZ,confi)
-    predXYZ,confi = confMask(predXYZ,confi) # 经过nms和confi后的预测
+    predXYZ,confi = confMask(predXYZ,confi) # prediction after nms and confiMask
     # cal recall
     predXYZ = torch.Tensor(predXYZ).float().to(max.device)
     gtXYZ = wireframeJunc[0]
@@ -103,14 +101,14 @@ def juncRecall(predXYZ,confi,wireframeJunc,mean,max,fpsPoint):
 
 
 def juncRecallV2(predXYZ,confi,wireframeJunc,mean,max,fpsPoint):
-    # 反归一化
+    # inv-normalize
     predXYZ = (predXYZ+fpsPoint) * max + mean
     wireframeJunc = torch.Tensor(wireframeJunc).to(max.device) * max + mean
     fpsPoint = fpsPoint * max + mean
     # nms and confi-based mask
     predXYZ = predXYZ[0].tolist()
     confi = confi[0].tolist()
-    predXYZ,confi = nms(predXYZ,confi)
+    predXYZ, confi = nms(predXYZ,confi)
 
     # cal recall
     predXYZ = torch.Tensor(predXYZ).float().to(max.device)
@@ -138,19 +136,20 @@ def juncRecallV2(predXYZ,confi,wireframeJunc,mean,max,fpsPoint):
 
 
 class getsap:
-    def __init__(self,s=7,nms_threshhold=5, confi_thresh=0):
-        self.s=s
+    def __init__(self, s=7, nms_threshhold=5, confi_thresh=0):
+        self.s = s
         self.nms_threshhold = nms_threshhold
-        self.tp_list=[]
-        self.fp_list=[]
-        self.score_list=[]
+        self.tp_list = []
+        self.fp_list = []
+        self.score_list = []
         self.len=0
         self.use=False
         self.confi_thresh = confi_thresh
         self.pred_point_number = []
         self.pred_point_number_nms = []
+
     def __call__(self,predXYZ,confi,wireframeJunc,mean,max,fpsPoint,rec_label):
-        # 反归一化
+        # inv-norm
         predXYZ = (predXYZ + fpsPoint) * max + mean
         wireframeJunc = torch.Tensor(wireframeJunc).to(max.device) * max + mean
         fpsPoint = fpsPoint * max + mean
@@ -192,16 +191,18 @@ class getsap:
                 tp[i] = 1
             else:
                 fp[i] = 1
-        # 还没算ap 算个recall先
+
         self.tp_list.append(tp)
         self.fp_list.append(fp)
         self.score_list.append(torch.Tensor(confi))
         self.len+=N
     def __reset__(self):
-        self.tp_list=[]
-        self.fp_list=[]
-        self.len=0
-        self.score_list=[]
+        self.tp_list = []
+        self.fp_list = []
+        self.len = 0
+        self.score_list = []
+
+    # ret ap
     def getap(self):
         if self.len==0:
             return 0
@@ -209,29 +210,30 @@ class getsap:
         fp_all = torch.cat(self.fp_list)
         score_all = torch.cat(self.score_list)
         score_index = torch.argsort(-score_all)
-        tp_all = torch.cumsum(tp_all[score_index],dim=0) / self.len
-        fp_all = torch.cumsum(fp_all[score_index],dim=0) / self.len
+        tp_all = torch.cumsum(tp_all[score_index], dim=0) / self.len
+        fp_all = torch.cumsum(fp_all[score_index], dim=0) / self.len
+        return self.ap(tp_all, fp_all)
 
-        return self.ap(tp_all,fp_all)
     def get_RPF(self):
         best_F, best_F_confi, best_F_recall,best_F_precision = self.get_best_F()
         tp_all = torch.cat(self.tp_list)
         fp_all = torch.cat(self.fp_list)
         sum_tp = torch.sum(tp_all)
         sum_fp = torch.sum(fp_all)
-        recall=sum_tp/self.len
-        precision=sum_tp/(sum_fp+sum_tp)
+        recall = sum_tp/self.len
+        precision = sum_tp/(sum_fp+sum_tp)
         f1 = 2*recall*precision/(recall+precision)
         AP = self.getap()
-        ret = {"AP":AP,"recall":recall.item(),
-               #"precision":precision.item(),'f1':f1.item(),'sum_tp':sum_tp.item(),'sum_fp':sum_fp.item(),'gt_num':self.len,
+        ret = {"AP": AP,"recall": recall.item(),
                "epsilon":self.s,"nms_thresh":self.nms_threshhold,"confi_thresh":self.confi_thresh,
-               "pred_min":np.array(self.pred_point_number).min(), "pred_max":np.array(self.pred_point_number).max(), "pred_ave":np.array(self.pred_point_number).mean(),"pred_std":np.array(self.pred_point_number).std(),
-               "pred_nms_min": np.array(self.pred_point_number_nms).min(), "pred_nms_max": np.array(self.pred_point_number_nms).max(),"pred_nms_ave": np.array(self.pred_point_number_nms).mean(), "pred_nms_std": np.array(self.pred_point_number_nms).std(),
-               #"best_F":best_F,"best_F_confi":best_F_confi,
+               "pred_min":np.array(self.pred_point_number).min(), "pred_max":np.array(self.pred_point_number).max(),
+               "pred_ave":np.array(self.pred_point_number).mean(),"pred_std":np.array(self.pred_point_number).std(),
+               "pred_nms_min": np.array(self.pred_point_number_nms).min(), "pred_nms_max": np.array(self.pred_point_number_nms).max(),
+               "pred_nms_ave": np.array(self.pred_point_number_nms).mean(), "pred_nms_std": np.array(self.pred_point_number_nms).std(),
                "best_F_recall":best_F_recall,"best_F_precision":best_F_precision}
-
+        ret = {k: round(v, 4) for k, v in ret.items()}
         return ret
+
     def get_best_F(self):
         if self.len==0:
             return 0
@@ -247,24 +249,19 @@ class getsap:
         best_F = torch.max(F).item()
         arg_i = torch.argmax(F)
         return best_F,score_all[arg_i].item(),recall[arg_i].item(),precision[arg_i].item()
-    def ap(self,tp, fp): #计算召回赫准确率, tp=G交P/G
+
+    # cal recall and precision, -> ret ap
+    def ap(self, tp, fp):
         recall = tp
         precision = tp / np.maximum(tp + fp, 1e-9*torch.ones_like(tp)) # tp/P
 
-        recall = torch.cat(( torch.Tensor([0.0]), recall, torch.Tensor([1.0]) )) #加上开头结尾
+        recall = torch.cat(( torch.Tensor([0.0]), recall, torch.Tensor([1.0])))  # add begin and end
         precision = torch.cat((torch.Tensor([0.0]), precision, torch.Tensor([0.0])))
 
         for i in range(precision.shape[0] - 1, 0, -1):
-            precision[i - 1] = max(precision[i - 1], precision[i]) # 是下降趋势
+            precision[i - 1] = max(precision[i - 1], precision[i]) # down trend
         i = torch.where(recall[1:] != recall[:-1])[0]
-        return torch.sum((recall[i + 1] - recall[i]) * precision[i + 1]).item() #计算PR曲线下面积
-
-    def print_result(self):
-        d ={}
-        d['Sap{}'.format(str(self.s))]=self.getap()
-        adict = self.get_RPF()
-        out = {**d,**adict}
-        print(out)
+        return torch.sum((recall[i + 1] - recall[i]) * precision[i + 1]).item()  # area under PR curve
 
     def save_result(self,path):
         ret = {
@@ -278,21 +275,47 @@ class getsap:
         fw.write(b)
         fw.close()
 
-    def save_result(self,path):
-        ret = {
-            "tp":torch.cat(self.tp_list).tolist(),
-            "fp":torch.cat(self.fp_list).tolist(),
-            "gt":self.len,
-            "score":torch.cat(self.score_list).tolist(),
+def getJunc3D(predXYZ, targetXYZ, max, mean, nameAll, labelAll, objGTJunc3DAll, objLineIdxAll, log_path, confiAll, fpsPointAll):
+    bs = predXYZ.shape[0]
+    # max = max.cpu().detach().numpy()
+    # mean = mean.cpu().detach().numpy()
+    for i in range(bs):
+        pred, target = predXYZ[i], targetXYZ[i]
+        fpsPoint = fpsPointAll[i]
+        pred = (pred+fpsPoint) * max + mean
+        target = (target+fpsPoint) * max + mean
+
+        fpsPoint = fpsPoint * max + mean
+
+        confi,label = confiAll[i],labelAll[i]
+        name,objLineIdx,objGTJunc3D = nameAll[i],objLineIdxAll[i],objGTJunc3DAll[i]
+        objGTJunc3D = objGTJunc3D * max.cpu().numpy() + mean.cpu().numpy()
+        ret={
+            "pred":pred.tolist(),
+            "target":target.tolist(),
+            "confi":confi.tolist(),
+            "label":label.tolist(),
+            "wireframeLine":objLineIdx.tolist(),
+            "wireframeJunc":objGTJunc3D.tolist(),
+            "max":max.tolist(),
+            "mean":mean.tolist(),
+            "fpsPoint":fpsPoint.tolist(),
         }
         b = json.dumps(ret)
-        fw = open(path,'w')
+        # outDir = "/data/obj_data/vis/visPredJunc"
+        outDir = "/data/obj_data/vis/visPredJuncFigure2"
+        os.makedirs(outDir,exist_ok=True)
+        fw = open(os.path.join(outDir, name + ".json"), 'w')
         fw.write(b)
         fw.close()
 
+
+
+
+#####################valid connectivity########################
 
 class edgeSap:
-    def __init__(self,s=7,nms_threshhold=5,confi_thresh=0):
+    def __init__(self,s=7,nms_threshhold=5.0,confi_thresh=0.0):
         self.s=s
         self.nms_threshhold = nms_threshhold
         self.tp_list=[]
@@ -305,7 +328,7 @@ class edgeSap:
         self.pred_point_number_nms = []
     def __call__(self,predXYZ,combination, edgeConfi,wireframeJunc,wireframeLine, mean,max,fpsPoint,):
         def line_to_line_dist_torch(xx,yy):
-            #   (N0,2,2) 和 (N1,2,2) ; (2,2)  [(x1,y1),(x2,y2)]
+            # input two array  (N0,2,2) 和 (N1,2,2) ; (2,2): [(x1,y1),(x2,y2)]
             diff = ((xx[:, None, :, None] - yy[:, None]) ** 2).sum(-1)
             # print(diff.shape)
             diff = torch.sqrt(diff)
@@ -313,7 +336,7 @@ class edgeSap:
                 diff[:, :, 0, 0] + diff[:, :, 1, 1], diff[:, :, 0, 1] + diff[:, :, 1, 0]
             )
             return diff
-        # inv-normal
+        # inv-normalize
         predXYZ = torch.from_numpy(predXYZ[0]).float().to(max.device)
         predXYZ = predXYZ  * max + mean
         wireframeJunc = torch.Tensor(wireframeJunc).to(max.device) * max + mean
@@ -337,12 +360,16 @@ class edgeSap:
         # cal recall
         combineXYZ = torch.Tensor(combineXYZ).float().to(max.device)
         gtCombineXYZ = wireframeJunc[0][wireframeLine,:]
-
+        # gtXYZ = wireframeJunc[0]
+        # gtXYZ = wireframeJunc[0][rec_label[0]]
 
         N, _,_ = gtCombineXYZ.shape  # N,2,3
         S, _, _ = combineXYZ.shape  # S,2,3
         dist = line_to_line_dist_torch(gtCombineXYZ,combineXYZ).transpose(1,0)
-
+        # gtCombineXYZ = gtCombineXYZ.unsqueeze(1).repeat((1, S, 1))  # N,S,3
+        # positiveXYZ = combineXYZ.unsqueeze(0).repeat((N, 1, 1))
+        # dist = torch.sum((gtCombineXYZ - positiveXYZ) ** 2, dim=-1)  # N,S
+        # dist = torch.sqrt(dist).transpose(1, 0)  # S,N
 
         choice = torch.argmin(dist, dim=-1)
         dist = torch.min(dist, dim=-1)[0]
@@ -385,10 +412,16 @@ class edgeSap:
         recall=sum_tp/self.len
         precision=sum_tp/(sum_fp+sum_tp)
         f1 = 2*recall*precision/(recall+precision)
-        ret = {"recall":recall.item(),"precision":precision.item(),'f1':f1.item(),'sum_tp':sum_tp.item(),'sum_fp':sum_fp.item(),'gt_num':self.len, "nms_thresh":self.nms_threshhold,"confi_thresh":self.confi_thresh,"epsilon":self.s,
-               "pred_min":np.array(self.pred_point_number).min(), "pred_max":np.array(self.pred_point_number).max(), "pred_ave":np.array(self.pred_point_number).mean(),"pred_std":np.array(self.pred_point_number).std(),
-               "pred_nms_min": np.array(self.pred_point_number_nms).min(), "pred_nms_max": np.array(self.pred_point_number_nms).max(),"pred_nms_ave": np.array(self.pred_point_number_nms).mean(), "pred_nms_std": np.array(self.pred_point_number_nms).std(),
-               "best_F":best_F,"best_F_confi":best_F_confi,"best_F_recall":best_F_recall,"best_F_precision":best_F_precision}
+        AP = self.getap()
+        ret = {"AP":AP, "recall":recall.item(), "precision":precision.item(),
+               'f1':f1.item(), 'sum_tp':sum_tp.item(), 'sum_fp':sum_fp.item(), 'gt_num':self.len,
+               "nms_thresh":self.nms_threshhold, "confi_thresh":self.confi_thresh, "epsilon":self.s,
+               "pred_min":np.array(self.pred_point_number).min(), "pred_max":np.array(self.pred_point_number).max(),
+               "pred_ave":np.array(self.pred_point_number).mean(),"pred_std":np.array(self.pred_point_number).std(),
+               "pred_nms_min": np.array(self.pred_point_number_nms).min(), "pred_nms_max": np.array(self.pred_point_number_nms).max(),
+               "pred_nms_ave": np.array(self.pred_point_number_nms).mean(), "pred_nms_std": np.array(self.pred_point_number_nms).std(),
+               "best_F":best_F, "best_F_confi":best_F_confi,
+               "best_F_recall":best_F_recall,"best_F_precision":best_F_precision}
 
         return ret
 
@@ -408,17 +441,17 @@ class edgeSap:
         arg_i = torch.argmax(F)
         return best_F,score_all[arg_i].item(),recall[arg_i].item(),precision[arg_i].item()
 
-    def ap(self,tp, fp):
+    def ap(self,tp, fp): # calulate recall and precision,
         recall = tp
         precision = tp / np.maximum(tp + fp, 1e-9*torch.ones_like(tp)) # tp/P
 
-        recall = torch.cat(( torch.Tensor([0.0]), recall, torch.Tensor([1.0]) )) #加上开头结尾
+        recall = torch.cat(( torch.Tensor([0.0]), recall, torch.Tensor([1.0]) ))
         precision = torch.cat((torch.Tensor([0.0]), precision, torch.Tensor([0.0])))
 
         for i in range(precision.shape[0] - 1, 0, -1):
-            precision[i - 1] = max(precision[i - 1], precision[i]) # 是下降趋势
+            precision[i - 1] = max(precision[i - 1], precision[i]) #
         i = torch.where(recall[1:] != recall[:-1])[0]
-        return torch.sum((recall[i + 1] - recall[i]) * precision[i + 1]) #计算PR曲线下面积
+        return torch.sum((recall[i + 1] - recall[i]) * precision[i + 1]).item()  # area under PR curve
 
     def print_result(self):
         d ={}
@@ -449,7 +482,7 @@ def Acc(logits,target):
 def recallAndAcc(logits,target):
     prob = F.softmax(logits, dim=1)
     # pred = torch.argmax(prob, dim=1)
-    pred = prob[:,1,:]>0.2 # 相连的概率预测
+    pred = prob[:,1,:]>0.2 #
     tp1 = ((pred==1)*(target==1))
     # tp1 = acc * (target==1)
     recall_1 = tp1.sum()/(target==1).sum()
@@ -459,7 +492,6 @@ def recallAndAcc(logits,target):
 
 
 def fun2(predXYZ, label, combine, logits, wireframeJunc, wireframeLine, name, mean, std, predXYZconfi, outputdir):
-    # 先merge再连
     ret={
         "mean":mean.cpu().numpy().tolist(),
         "std":std.cpu().numpy().tolist(),
@@ -479,6 +511,7 @@ def fun2(predXYZ, label, combine, logits, wireframeJunc, wireframeLine, name, me
     fw.close()
 
 def fun2V2_forFigure2(predXYZ, label, combine, logits, wireframeJunc, wireframeLine, name, mean, std, predXYZconfi):
+    # 先merge再连
     predXYZ = torch.from_numpy(predXYZ[0]).to(std.device)
     predXYZ = predXYZ * std + mean.unsqueeze(0)
     ret={
@@ -542,6 +575,7 @@ def validCls(model, data_loader, log_path, cfg):
             recall,precision = recallAndAcc(logits, batch['classifyLabel'])
 
             confi = F.softmax(logits,dim=1)[:,1,:]
+
             S10(batch['predXYZ'],combine, confi,batch['objGTJunc3D'],wireframeLine, batch['mean'],batch['std'],batch['fpsPoint'],)
             S7(batch['predXYZ'], combine, confi, batch['objGTJunc3D'], wireframeLine, batch['mean'], batch['std'],batch['fpsPoint'])
             S5(batch['predXYZ'], combine, confi, batch['objGTJunc3D'], wireframeLine, batch['mean'], batch['std'],batch['fpsPoint'])
@@ -550,9 +584,8 @@ def validCls(model, data_loader, log_path, cfg):
             S7_0(batch['predXYZ'], combine, confi, batch['objGTJunc3D'], wireframeLine, batch['mean'], batch['std'],batch['fpsPoint'])
             S5_0(batch['predXYZ'], combine, confi, batch['objGTJunc3D'], wireframeLine, batch['mean'], batch['std'],batch['fpsPoint'])
 
-
-            fun2(predXYZ[0], label[0], combine, logits, batch['objGTJunc3D'][0], wireframeLine, batch['name'][0],batch['mean'][0],batch['std'],batch['predXYZconfi'],cfg['output_path'])
-
+            if cfg['write_pred_wireframe']:
+                fun2(predXYZ[0], label[0], combine, logits, batch['objGTJunc3D'][0], wireframeLine, batch['name'][0],batch['mean'][0],batch['std'],batch['predXYZconfi'],cfg['output_path'])
 
             metric={
                 'cls_acc_loss':acc,
@@ -566,29 +599,43 @@ def validCls(model, data_loader, log_path, cfg):
                 avg_loss_stats[l].update(metric[l].mean().item(), bs)
                 Bar.suffix = Bar.suffix + '|{} {:.4f} '.format(l, avg_loss_stats[l].avg)
             if iter_id%50==0: print(Bar.suffix)
-        print("######### nms=4 + truncate ######")
-        print(S10.getap(), S10.get_RPF())
-        print(S7.getap(), S7.get_RPF())
-        print(S5.getap(), S5.get_RPF())
-        print("\n")
 
-        print("######### nms=0 + truncate ######")
-        print(S10_0.getap(), S10_0.get_RPF())
-        print(S7_0.getap(), S7_0.get_RPF())
-        print(S5_0.getap(), S5_0.get_RPF())
+        def get_avg(*args):
+            AP_all = 0
+            recall_all = 0
+            for a in args:
+                AP_all+=a['AP']
+                recall_all+=a['recall']
+            AP_all = AP_all/len(args)
+            recall_all = recall_all / len(args)
+            return round(AP_all, 4), round(recall_all, 4)
+
+        S10_result = S10.get_RPF()
+        S7_result = S7.get_RPF()
+        S5_result = S5.get_RPF()
+
+        S10_0_result = S10_0.get_RPF()
+        S7_0_result = S7_0.get_RPF()
+        S5_0_result = S5_0.get_RPF()
+        avg_ap, avg_recall = get_avg(S5_0_result,S7_0_result,S10_0_result)
+        print("""
+            vtx min/max/ave/std {},{},{},{}
+            sap5, recall5, {}, {},
+            sap7, recall7, {}, {},
+            sap10, recall10, {}, {},
+            ave sap, ave recall, {},{}
+
+            """.format(S10_0_result['pred_min'], S10_0_result['pred_max'],
+                       S10_0_result['pred_ave'], S10_0_result['pred_std'],
+                       S5_0_result['AP'], S5_0_result['recall'],
+                       S7_0_result['AP'], S7_0_result['recall'],
+                       S10_0_result['AP'], S10_0_result['recall'],
+                       avg_ap, avg_recall,
+                       )
+              )
 
         print("network forward total time {}, total sample {}, ave {}".format(tAll,data_loader.__len__(),tAll/data_loader.__len__()))
         FF = time.time() - tstart
         print("network total time {}, total sample {}, ave {}".format(FF, data_loader.__len__(),FF / data_loader.__len__()))
         print("save tp fp result of nms=3")
-
-
-def writeLines(ret,name):
-    XYZ = np.array(ret['predXYZ'])[0]
-    XYZ = XYZ * ret['std'] + np.array(ret['mean'])[None,:]
-    with open(name,'w') as fw:
-        for kk in range(XYZ.shape[0]):
-            fw.write("v {} {} {}\n".format(*[str(qq) for qq in XYZ[kk].tolist()]))
-        for kk in range(len(ret['combine'])):
-            if ret['prob'][1][kk]>0.7:
-                fw.write("l {} {}\n".format(ret['combine'][kk][0],ret['combine'][kk][1]))
+        return S5_0_result['AP']

@@ -5,20 +5,16 @@ import scipy.io as sio
 import torch
 
 def msTPFP(line_pred, line_gt, threshold):
-    #输入 两个array  (N0,2,2) 和 (N1,2,2) ; (2,2)分别是 [(x1,y1),(x2,y2)]
-    # print(line_pred[:,None,:,None].shape,line_gt[:,None].shape)
+
     diff = ((line_pred[:,None,:] - line_gt[None,:,:]) ** 2).sum(-1)
-
-
-    #diff 为(N0,N1)  到这里计算了 pred的每个线 和gt的每个线 端点之间的距离的和(考虑已经算了左右顺序了)
     choice = np.argmin(diff, 1)
     dist = np.min(diff, 1)
-    hit = np.zeros(len(line_gt), np.bool_) # 记录每条线是否被用过
+    hit = np.zeros(len(line_gt), np.bool_)
     tp = np.zeros(len(line_pred), np.float64)
     fp = np.zeros(len(line_pred), np.float64)
-    # 每条预测线和真实线对 这里 线是sort过的 按照score， 因此 score高的会提前匹配
+
     for i in range(len(line_pred)):
-        if dist[i] < threshold and not hit[choice[i]]: # 这里是距离最小的，用条数，改成用对上最长的算像素
+        if dist[i] < threshold and not hit[choice[i]]:
             hit[choice[i]] = True
             tp[i] = 1
         else:
@@ -97,17 +93,17 @@ class juncAP_woConfi:
         ret = {"recall":recall.item(),"precision":precision.item(),'f1':f1,'sum_tp':sum_tp,'sum_fp':sum_fp,'gt_num':self.len}
         return ret
         return recall,precision,f1,sum_tp,sum_fp,self.len
-    def ap(self,tp, fp): #计算召回赫准确率, tp=G交P/G
+    def ap(self,tp, fp):
         recall = tp
         precision = tp / np.maximum(tp + fp, 1e-9*torch.ones_like(tp)) # tp/P
 
-        recall = torch.cat(( torch.Tensor([0.0]), recall, torch.Tensor([1.0]) )) #加上开头结尾
+        recall = torch.cat(( torch.Tensor([0.0]), recall, torch.Tensor([1.0]) ))
         precision = torch.cat((torch.Tensor([0.0]), precision, torch.Tensor([0.0])))
 
         for i in range(precision.shape[0] - 1, 0, -1):
-            precision[i - 1] = max(precision[i - 1], precision[i]) # 是下降趋势
+            precision[i - 1] = max(precision[i - 1], precision[i])
         i = torch.where(recall[1:] != recall[:-1])[0]
-        return torch.sum((recall[i + 1] - recall[i]) * precision[i + 1]) #计算PR曲线下面积
+        return torch.sum((recall[i + 1] - recall[i]) * precision[i + 1])
 
     def print_result(self):
         d ={}
@@ -128,7 +124,6 @@ class edgeSap_woConfi:
         self.use=False
     def __call__(self,predXYZ,combination,wireframeJunc,wireframeLine):
         def line_to_line_dist_torch(xx,yy):
-            # 输入 两个array  (N0,2,2) 和 (N1,2,2) ; (2,2)分别是 [(x1,y1),(x2,y2)]
             diff = ((xx[:, None, :, None] - yy[:, None]) ** 2).sum(-1)
             # print(diff.shape)
             diff = torch.sqrt(diff)
@@ -136,7 +131,6 @@ class edgeSap_woConfi:
                 diff[:, :, 0, 0] + diff[:, :, 1, 1], diff[:, :, 0, 1] + diff[:, :, 1, 0]
             )
             return diff
-        # 反归一化
         predXYZ = torch.Tensor(predXYZ).float()
 
         wireframeJunc = torch.Tensor(wireframeJunc)
@@ -172,13 +166,11 @@ class edgeSap_woConfi:
                 tp[i] = 1
             else:
                 fp[i] = 1
-        # 还没算ap 算个recall先
         self.tp_list.append(tp)
         self.fp_list.append(fp)
         self.score_list.append(tp)
         self.len+=N
         if tp.sum()/N<0.7:
-            # print(tp.sum()/N)
             return True
     def __reset__(self):
         self.tp_list=[]
@@ -206,18 +198,18 @@ class edgeSap_woConfi:
         f1 = 2*recall*precision/(recall+precision)
         ret = {"recall":recall,"precision":precision,'f1':f1,'sum_tp':sum_tp,'sum_fp':sum_fp,'gt_num':self.len}
         return ret
-        return recall,precision,f1,sum_tp,sum_fp,self.len
-    def ap(self,tp, fp): #计算召回赫准确率, tp=G交P/G
+
+    def ap(self,tp, fp):
         recall = tp
         precision = tp / np.maximum(tp + fp, 1e-9*torch.ones_like(tp)) # tp/P
 
-        recall = torch.cat(( torch.Tensor([0.0]), recall, torch.Tensor([1.0]) )) #加上开头结尾
+        recall = torch.cat(( torch.Tensor([0.0]), recall, torch.Tensor([1.0]) ))
         precision = torch.cat((torch.Tensor([0.0]), precision, torch.Tensor([0.0])))
 
         for i in range(precision.shape[0] - 1, 0, -1):
-            precision[i - 1] = max(precision[i - 1], precision[i]) # 是下降趋势
+            precision[i - 1] = max(precision[i - 1], precision[i])
         i = torch.where(recall[1:] != recall[:-1])[0]
-        return torch.sum((recall[i + 1] - recall[i]) * precision[i + 1]) #计算PR曲线下面积
+        return torch.sum((recall[i + 1] - recall[i]) * precision[i + 1])
 
     def print_result(self):
         d ={}

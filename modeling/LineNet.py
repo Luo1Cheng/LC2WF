@@ -2,7 +2,7 @@ import torch
 import torchvision
 import torch.nn as nn
 import torch.nn.functional as F
-from modeling.model_utils import classify, Mlp
+from modeling.model_utils import classify
 
 
 
@@ -25,7 +25,7 @@ class Head(nn.Module):
 class HeadEdge(nn.Module):
     def __init__(self):
         super(HeadEdge, self).__init__()
-        self.classify1 = Mlp(mlp=[256, 128,64,32,1])
+        self.classify1 = classify(mlp=[256, 128,64,32,1])
         self.BCE_loss =nn.BCEWithLogitsLoss(reduction="none")
 
     def forward(self, points, heatMap, mask, positiveMask): # points: N,C,sp
@@ -48,6 +48,7 @@ class Myloss(nn.Module):
         self.CE = torch.nn.CrossEntropyLoss()
         self.L1 = torch.nn.L1Loss(reduction='none')
         # self.L1 = torch.nn.SmoothL1Loss(reduction='none')
+
     def forward(self, logits, predXYZ, classifyLabel, label, objGTJunc3D, item, fpsXYZ, stage="l1"):
 
         lossCls = self.CE(input=logits, target=classifyLabel)
@@ -64,19 +65,17 @@ class Myloss(nn.Module):
         lossRuc = self.L1(predXYZ, l1_targetXYZ) * classifyLabel.unsqueeze(-1)
         temp_out = lossRuc
         lossRuc = torch.sum(torch.sum(lossRuc, dim=-1) * classifyLabel, dim=-1)
-        juncNum = torch.sum(classifyLabel, dim=-1) + 1e-6
+        juncNum = torch.sum(classifyLabel, dim=-1) + 1e-8
 
         lossRuc = torch.mean(lossRuc / juncNum)
         temp_out = temp_out.sum(1) / juncNum.unsqueeze(-1)
         ret =  {stage+"_lossCls":lossCls,
                 stage+"_lossRuc":lossRuc,
-                # stage+"_loss": lossRuc * 10 + lossCls,
                 stage + "_loss": lossRuc * 10 + lossCls,
-                # stage + "_loss": lossRuc * 6 + lossCls, # change from 10 to 6 for realdata
                 stage+"_targetXYZ":l1_targetXYZ,
-                stage+"_predXYZ": predXYZ, #这里我写错拉！原本我写的是predXYZ，但应该是src_predXYZ
+                stage+"_predXYZ": predXYZ,
                 stage+"_logits": logits,
-                stage+"_mae_loss":temp_out, # 每个坐标(xyz)的平均误差(原始尺度)
+                stage+"_mae_loss":temp_out, # avg error between pred XYZ and GT XYZ (under original scale)
                 "src_l1_targetXYZ":src_l1_targetXYZ}
         return ret
 

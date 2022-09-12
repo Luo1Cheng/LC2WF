@@ -1,22 +1,17 @@
-import  torch.utils.data as data
 import torch
 import numpy as np
 import os
-import functools
 import json
-from modeling.utils import *
-from itertools import permutations,combinations
-import torch.nn.functional as F
-from sklearn.decomposition import PCA
-import modeling.utils as MUT
-import random
-from dataset import *
+from modeling.utils import preprocessV2, farthest_point_sampleV2, index_points, query_ball_pointV5
+from dataset import dataAug
 
 
 
 def LineGetItemV3TransOneNormalV2(self, item):
     '''
-
+    # normalize uniformly
+    # add mask
+    # cat distance
     '''
     json_path = self.obj_list[item]
     name = os.path.split(json_path)[-1][:-5]
@@ -109,4 +104,6 @@ def LineGetItemV3TransOneNormalV2(self, item):
     X = torch.cat([X, toCat], dim=-1)
     return X, Mylabel, classifyLabel, objGTJunc3D_array, fpsPoint, mean, max, name, np.array(
         objLineIdx), rec_label, word_mask, fpsLabel
+
+
 

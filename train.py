@@ -16,8 +16,12 @@ from utils.utils import optimizer_define, load_model, save_model, AverageMeter
 
 import torch.nn.functional as F
 import json
-def TrainInit():
-    pyFileName = os.path.splitext(os.path.basename(__file__))[0]
+import argparse
+def TrainInit(yamlName):
+    if yamlName=="":
+        pyFileName = os.path.splitext(os.path.basename(__file__))[0]
+    else:
+        pyFileName = yamlName
     yamlFileName = "config/{}.yaml".format(pyFileName)
     if not os.path.exists(yamlFileName):
         raise ValueError("{} not found".format(yamlFileName))
@@ -57,8 +61,6 @@ def train(epoch, model, optimizer, data_loader, end_epoch):
     bar = Bar('{}'.format(epoch), max=end_epoch)
     avg_loss_stats = None
     for iter_id, batch in enumerate(data_loader):
-        # if iter_id<730:
-        #     continue
         optimizer.zero_grad()
         bs = batch['input'].size(0)
         for k in batch.keys():
@@ -85,28 +87,9 @@ def train(epoch, model, optimizer, data_loader, end_epoch):
 def Acc(logits, target, thresh=0.5):
     prob = F.softmax(logits, dim=1)
     confi = prob[:, 1, :]
-    pred = torch.where(prob[:,1,:]>thresh, 1, 0)
+    pred = torch.where(prob[:, 1, :] > thresh, 1, 0)
 
-    # X = (prob == target)
-    X = (pred==target)
-    tp = X * target
-
-    recall = torch.sum(tp, dim=-1)/torch.sum(target, dim=-1)
-    recall = torch.mean(recall)
-
-    precision = torch.sum(tp, dim=-1) / torch.sum(pred, dim=-1)
-
-    acc = torch.sum(X,dim=-1)/X.shape[1]
-    acc = torch.mean(acc)
-    return acc, recall, precision, tp, confi
-
-def AccForBCE(logits, target, thresh=0.5):
-    prob = torch.sigmoid(logits)
-    confi = prob[:, 0, :]
-    pred = torch.where(prob[:,0,:]>thresh, 1, 0)
-
-    # X = (prob == target)
-    X = (pred==target)
+    X = (pred == target)
     tp = X * target
 
     recall = torch.sum(tp, dim=-1)/torch.sum(target, dim=-1)
@@ -119,17 +102,15 @@ def AccForBCE(logits, target, thresh=0.5):
     return acc, recall, precision, tp, confi
 
 def L2dis(mask, predXYZ, targetXYZ, max):
-    # residual = torch.abs(predXYZ-targetXYZ)  # bs,256,3
-    # residual = torch.mean(residual * max, dim=-1) # bs 256
     residual = torch.abs(predXYZ-targetXYZ)
-    residual = torch.sum( (residual * max)**2 ,dim=-1)
+    residual = torch.sum( (residual * max)**2, dim=-1)
     residual = torch.sqrt(residual)
     mae = torch.sum(residual * mask, dim=-1) / torch.sum(mask, dim=-1)
     mae = torch.mean(mae, dim=0)
     return mae
 
 
-from valid_code import juncRecallV2,getsap
+from valid_code import juncRecallV2, getsap
 
 def valid(model, data_loader, log_path):
     model.eval()
@@ -155,16 +136,12 @@ def valid(model, data_loader, log_path):
             t1 = time.time()
             output = model(batch)
 
-
-
             tAll = tAll + time.time() - t1
             logits = output['l1_logits']
-
 
             acc, recall, precision, tpMask, confi = Acc(logits, batch['classifyLabel'])
             tpMAE = L2dis(tpMask, output['l1_predXYZ'], output['l1_targetXYZ'], batch['std'])
             tpfnMAE = L2dis(batch['classifyLabel'].bool(), output['l1_predXYZ'], output['l1_targetXYZ'], batch['std'])
-
 
             label_rec_loss = juncRecallV2(output['l1_predXYZ'],confi,batch['objGTJunc3D'],batch['mean'],batch['std'],batch['fpsPoint'])
             S53(output['l1_predXYZ'], confi, batch['objGTJunc3D'], batch['mean'], batch['std'], batch['fpsPoint'], batch['rec_label'])
@@ -214,31 +191,30 @@ def valid(model, data_loader, log_path):
                 avg_loss_stats[l].update(metric[l].mean().item(), bs)
                 # Bar.suffix = Bar.suffix + '|{} {:.4f} '.format(l, avg_loss_stats[l].avg)
                 Bar.suffix = Bar.suffix + '|{} {:.4f} '.format(l, metric[l].mean().item())
-            if iter_id%50==0: print(Bar.suffix,batch['name'])
+            if iter_id % 50 == 0: print(Bar.suffix,batch['name'])
 
-        def ff(a):
-            for kk in a.keys():
-                a[kk] = round(a[kk],4)
-            return a
+        def get_avg(*args):
+            AP_all = 0
+            recall_all = 0
+            for a in args:
+                AP_all+=a['AP']
+                recall_all+=a['recall']
+            AP_all = AP_all/len(args)
+            recall_all = recall_all / len(args)
+            return round(AP_all, 4), round(recall_all, 4)
 
-        def ss(a,b,c):
-            d = {}
-            for kk in a.keys():
-                d[kk] = a[kk]+b[kk]+c[kk]
-                d[kk] = round(d[kk]/3,4)
-            return d
 
 
         print("###### nms=3 + truncate ######")
-        a1 = ff(S33.get_RPF())
-        a2 = ff(S53.get_RPF())
-        a3 = ff(S73.get_RPF())
-        am = ss(a1,a2,a3)
+        S33_result = S33.get_RPF()
+        S53_result = S53.get_RPF()
+        S73_result = S73.get_RPF()
+        avg_ap_nms, avg_recall_nms = get_avg(S33_result, S53_result, S73_result)
         print("without nms only truncate")
-        b1 = ff(S30.get_RPF())
-        b2 = ff(S50.get_RPF())
-        b3 = ff(S70.get_RPF())
-        bm = ss(a1,a2,a3)
+        S30_result = S30.get_RPF()
+        S50_result = S50.get_RPF()
+        S70_result = S70.get_RPF()
+        avg_ap, avg_recall = get_avg(S30_result, S50_result, S70_result)
         print("\n")
 
         print("""
@@ -258,25 +234,36 @@ def valid(model, data_loader, log_path):
             ave sap, ave recall, {},{}
 
             vtx 
-            """.format(b1['pred_min'], b1['pred_max'], b1['pred_ave'], b1['pred_std'],
-              b1['AP'], b1['recall'], b2['AP'], b2['recall'], b3['AP'], b3['recall'],bm['AP'],bm['recall'],
-              a1['pred_nms_min'], a1['pred_nms_max'], a1['pred_nms_ave'], a1['pred_nms_std'],
-              a1['AP'], a1['recall'], a2['AP'], a2['recall'], a3['AP'], a3['recall'], am['AP'], am['recall'],
-              ))
+            """.format(S30_result['pred_min'], S30_result['pred_max'],
+                       S30_result['pred_ave'], S30_result['pred_std'],
+                       S30_result['AP'], S30_result['recall'],
+                       S50_result['AP'], S50_result['recall'],
+                       S70_result['AP'], S70_result['recall'],
+                       avg_ap, avg_recall,
+                       S33_result['pred_nms_min'], S33_result['pred_nms_max'],
+                       S33_result['pred_nms_ave'], S33_result['pred_nms_std'],
+                       S33_result['AP'], S33_result['recall'],
+                       S53_result['AP'], S53_result['recall'],
+                       S73_result['AP'], S73_result['recall'],
+                       avg_ap_nms, avg_recall_nms
+                       )
+              )
 
 
         print("\n")
-
         print("network forward total time {}, total sample {}, ave {}".format(tAll,data_loader.__len__(),tAll/data_loader.__len__()))
         FF = time.time() - tstart
         print("network total time {}, total sample {}, ave {}".format(FF, data_loader.__len__(),FF / data_loader.__len__()))
         print("save tp fp result of nms=3")
-
+        return S33_result['AP']
 
 
 
 if __name__=="__main__":
-    cfg = TrainInit()
+    parser = argparse.ArgumentParser(description="Process some string")
+    parser.add_argument("--yamlName", type=str, default="", help="input the yaml file name", required=False)
+    args = parser.parse_args()
+    cfg = TrainInit(args.yamlName)
     log_path = cfg['log_path']
     with DupStdoutFileManager(os.path.join(log_path,'logfile.txt')) as _:
         print(json.dumps(cfg,indent=4,ensure_ascii=False))
@@ -285,10 +272,6 @@ if __name__=="__main__":
         train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=cfg['train']['batch_size'],
                                                    shuffle=True, num_workers=cfg['train']['num_workers'],
                                                    pin_memory=True, drop_last=True, collate_fn=train_dataset.collate_fn)
-        train_loader2 = torch.utils.data.DataLoader(train_dataset, batch_size=1,
-                                                   shuffle=False, num_workers=cfg['train']['num_workers'],
-                                                   pin_memory=True, drop_last=True, collate_fn=train_dataset.collate_fn)
-
         test_dataset = dataset.LineDataset(cfg['dataset'], split='test')
         test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=1,
                                                    shuffle=False, num_workers=cfg['train']['num_workers'],
@@ -319,20 +302,42 @@ if __name__=="__main__":
         print('---------------Starting training...------------------')
         start_epoch=0
         end_epoch = cfg['train']['optim_step'][-1]
-        TRAIN = False
-        if TRAIN:
+        best_AP = 0
+        if cfg['mode'] == "train":
+            print("\033[31m#####Training junction model begins#####\033[0m")
             for epoch in range(start_epoch + 1, end_epoch + 1):
                 log_dict_train = train(epoch, model_parallel, optimizer, train_loader,end_epoch)
                 scheduler.step(epoch=epoch)
                 loss = log_dict_train['loss']
                 if (epoch%5==0) or (epoch>=0):
                     print("epoch",epoch)
-                    valid(model_parallel, test_loader, log_path)
+                    this_ap = valid(model_parallel, test_loader, log_path)
                     save_model(os.path.join(log_path, 'saved_models', 'model_epoch{}.pth'.format(epoch)), epoch, loss,
                                model)
-        else:
+                    if this_ap>best_AP:
+                        best_AP = this_ap
+                        save_model(os.path.join(log_path, 'saved_models', 'junction_best.pth'), epoch,
+                                   loss,model)
+        elif cfg['mode'] == "writeJunc":
+            print("\033[31m#####Predicting train/test dataset junction begins#####\033[0m")
+            train_dataset2 = dataset.LineDataset(cfg['dataset'], split='valid')
+            train_loader2 = torch.utils.data.DataLoader(train_dataset2, batch_size=1,
+                                                        shuffle=False, num_workers=cfg['train']['num_workers'],
+                                                        pin_memory=True, drop_last=True,
+                                                        collate_fn=train_dataset.collate_fn)
             for epoch in range(0, 1):
+                if cfg['write_pred_junc']:
+                    print("write pred junction to {}".format(cfg['write_pred_junc_path']))
                 print("get test dataset junction prediction results")
                 valid(model_parallel, test_loader, log_path)
-                # print("get train dataset junction prediction results")
-                # valid(model_parallel, train_loader2, log_path)
+                print("get train dataset junction prediction results")
+                valid(model_parallel, train_loader2, log_path)
+        elif cfg['mode'] == "eval":
+            print("\033[31m#####Predicting test dataset junction begins#####\033[0m")
+            for epoch in range(0, 1):
+                if cfg['write_pred_junc']:
+                    print("write pred junction to {}".format(cfg['write_pred_junc_path']))
+                print("get test dataset junction prediction results")
+                valid(model_parallel, test_loader, log_path)
+        else:
+            print("\033[31m#####set the right mode in yaml file#####\033[0m")

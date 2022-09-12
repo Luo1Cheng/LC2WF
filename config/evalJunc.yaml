@@ -1,40 +1,39 @@
 train:
-  batch_size: 32
+  batch_size: 16
   num_workers: 10
   lr: 0.001
   resume: False
   self_train: True
-  optim_step: [15, 25, 31]
+  optim_step: [15, 30, 41]
 log_path: ./log
 
 dataset:
   train_path: LC2WF_data/train.txt
   test_path: LC2WF_data/test.txt
+  if_cat: True
+  cat_normal: False
+  normal_patch_line: False
+  EachGroupNumber: 32
+  NegSampleThresh: 16
   use_real: False
-  if_cat: False
-  sample_number: 512
-
   LineCloud_path: LC2WF_data/LineCloud_0130_P123
-  PredJunc_path: ./log/outputPredJunc_retrained
-
 
 seed: 1555
-mode: "train"
-write_pred_wireframe: False
-output_path: ./log/outputPredWireframe_retrained
-
-
+mode: "eval"
+write_pred_junc: True
+write_pred_junc_path: ./log/outputPredJunc
 model:
-  load_model: ''
+  load_model: './pretrained/junction.pth'
 
 Net:
-  input_dim: 6
+  input_dim: 7
 transformer:
   hidden_dim: 256
   dropout: 0.5
   nheads: 8
   dim_feedforward: 256
-  num_encoder_layers: 1
+  num_encoder_layers_1: 1
+  num_encoder_layers_2: 1
   num_decoder_layers: 2
   num_queries: 50
   pre_norm: True

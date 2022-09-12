@@ -50,7 +50,7 @@ class WED:
 
         #edge deletion
         predJunc_index = arg_dist # transform后对应gt的实际index
-        #计算新的edge
+        # calulate new edge
         predEdge_new = arg_dist[np.array(self.predEdge)] #index是和gtwireframe的index对应的
         hitEdge = [0] * self.WFEdge.__len__()
         edge_to_delete = []
@@ -73,16 +73,16 @@ class WED:
         edge_edit_dis = edge_to_add_data.sum() + edge_to_delete_data.sum()
 
 
-        print("""num of gt wireframe junc/line {},{},
-        num of pred junc/line {},{},
-        sum edit distance of junc {},
-        add junc number {},
-        edge need to be edit(sum of add and delete) {}+{}={},
-        edge edit dis(mean length of add and delete edge) {}+{}={},
-        """.format(self.WFJunc.__len__(),self.WFEdge.__len__(),self.predJunc.__len__(),self.predEdge.__len__(),edit_dis_junc.sum(),junc_add_num,
-                   edge_add_num,edge_delete_num,edge_add_num+edge_delete_num,
-                   edge_to_add_data.sum(),edge_to_delete_data.sum(),edge_edit_dis)
-              )
+        # print("""num of gt wireframe junc/line {},{},
+        # num of pred junc/line {},{},
+        # sum edit distance of junc {},
+        # add junc number {},
+        # edge need to be edit(sum of add and delete) {}+{}={},
+        # edge edit dis(mean length of add and delete edge) {}+{}={},
+        # """.format(self.WFJunc.__len__(),self.WFEdge.__len__(),self.predJunc.__len__(),self.predEdge.__len__(),edit_dis_junc.sum(),junc_add_num,
+        #            edge_add_num,edge_delete_num,edge_add_num+edge_delete_num,
+        #            edge_to_add_data.sum(),edge_to_delete_data.sum(),edge_edit_dis)
+        #       )
 
         return [self.WFJunc.__len__(),self.WFEdge.__len__(),self.predJunc.__len__(),self.predEdge.__len__(),edit_dis_junc.sum(),junc_add_num,
                    edge_add_num,edge_delete_num,edge_add_num+edge_delete_num,

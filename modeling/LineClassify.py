@@ -2,7 +2,7 @@ import torch
 import torchvision
 import torch.nn as nn
 import torch.nn.functional as F
-from modeling.model_utils import classify, Mlp
+from modeling.model_utils import classify
 
 class Head(nn.Module):
     def __init__(self, mlp=[256, 128,64,32]):
