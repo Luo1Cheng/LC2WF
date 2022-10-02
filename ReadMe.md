@@ -2,21 +2,24 @@
 
 # LC2WF: Learning to Construct 3D Building Wireframes from 3D Line Clouds
 
-![intro](fig/mtd_overview_v2.jpg)
+<p>
+<img align="center"  src="fig/mtd_overview_v2.jpg" width="1000">
+</p>
 
-# Introduction
+This is a demo code for our paper "*LC2WF:Learning to Construct 3D Building Wireframes from 3D Line Clouds*", accepted to BMVC 2022, by [Yicheng Luo](https://www.researchgate.net/search.Search.html?ev=nav_search), [Jing Ren](https://ren-jing.com/),  [Xuefei Zhe](https://www.semanticscholar.org/author/Xuefei-Zhe/9621748), [Di Kang](https://scholar.google.com/citations?user=2ztThPwAAAAJ), [Yajing Xu](https://www.researchgate.net/scientific-contributions/Yajing-Xu-2157266562), [Peter Wonka](http://peterwonka.net/), and [Linchao Bao](http://linchaobao.github.io/).
 
-This repository is for paper "LC2WF:Learning to Construct 3D Building Wireframes from 3D Line Clouds". 
-
-Created by Yicheng Luo*, Jing Ren\*,  Xuefei Zhe, Di Kang, Yajing Xu, Peter Wonka and Linchao Bao.
-
-
-
-[[arxiv]](https://arxiv.org/abs/2208.11948)  [[Dataset]](#pretrained-models-and-data) [[Models]](#pretrained-models-and-data)  [[Suppl]]() [[WebPage]]()
+In this work, we propose the first network to process line clouds for building **wireframe** abstraction.
+The network takes a line cloud as input , i.e., a nonstructural and unordered set of 3D line segments extracted from multi-view images, and outputs a 3D wireframe of the underlying building, which consists of a sparse set of 3D junctions connected by line segments. 
+We observe that a **line patch**, i.e., a group of neighboring line segments, encodes sufficient contour information to predict the existence and even the 3D position of a potential junction, as well as the likelihood of connectivity between two query junctions.
+We therefore introduce a two-layer **Line-Patch Transformer** to extract junctions and connectivities from sampled line patches to form a 3D building wireframe model. 
+We also introduce a synthetic dataset of multi-view images with ground-truth 3D wireframe.
 
 
+You can find more details at: [[paper]](https://arxiv.org/abs/2208.11948) | [[dataset and models]](###pretrained-models-and-data) | [[suppl.]]()
 
-# Requirements
+
+
+## Requirements
 
 * torch   1.8.0
 * torchvision 0.9.0
@@ -24,8 +27,9 @@ Created by Yicheng Luo*, Jing Ren\*,  Xuefei Zhe, Di Kang, Yajing Xu, Peter Wonk
 * python 3.8.8
 
 
+## Quick Start
 
-# Pretrained Models And Data
+### Pretrained Models And Data
 
 |                  | url                                                          |
 | :--------------: | ------------------------------------------------------------ |
@@ -34,7 +38,7 @@ Created by Yicheng Luo*, Jing Ren\*,  Xuefei Zhe, Di Kang, Yajing Xu, Peter Wonk
 
 
 
-# Evaluation
+### Evaluation
 
 1. Clone repository
 
@@ -94,62 +98,76 @@ python ours_eval.py
 
 
 
-# Training
+## Train from Scratch
 
 1. Clone repository
-
-```
+`
 git clone https://github.com/Luo1Cheng/LC2WF.git 
-```
+`
 
 
 
-2. Download line cloud data.
+2. Download line cloud data from [[Google Drive]]() or [[Baidu Disk]](https://pan.baidu.com/s/1kniIVDjgyLIACVze2g4aow )(code:p9kb)
 
    
 
 3. Unzip the files.
-
-```
+`
 unzip LC2wf_data.zip
-```
+`
 
 
 
-4. Train junction prediction model first
-
-```python
+4. Train the **junction prediction** model first
+`
 python train.py --yamlName train
-```
+`
 
 
 
-5. Change the **load_model** in **config/genPredJunc.yaml** to your **junction_best.pth** which will be saved in log/***/saved_models folder.
+5. Change the `load_model` in `config/genPredJunc.yaml` to your `junction_best.pth`, which will be saved in `log/***/saved_models` folder.
 
 
 
-6. Generate predicted Junction of train&test dataset
-
-```python
+6. Generate the predicted junctions of the training and test dataset
+`
 python train.py --yamlName genPredJunc
-```
+`
 
 
 
-7. Train connectivity prediction model
-
-```python
+7. Train the **connectivity prediction** model
+`
 python trainClassify.py
+`
+
+
+
+8. The best model will be saved in log/***/saved_models folder.
+
+
+
+## License
+
+
+
+## Acknowledgements
+- We use [Line3D++]() for line cloud extraction
+- We use the original released code for our baselines, including [PolyFit](), [PC2WF](), [Line2Surf]()
+- Our dataset is adapted from the paper ["Intuitive and Efficient Roof Modeling for Reconstruction and Synthesis"](https://github.com/llorz/SGA21_roofOptimization/blob/main/README.md)
+
+## Citation
+If you use this code/dataset for your research, please cite our paper:
+
 ```
-
-
-
-The best model will be saved in log/***/saved_models folder.
-
-
-
-# License
-
-
-
-# Acknowledgements
+@article{luo2022LC2WF,
+  author = {},
+  title = {},
+  journal = {},
+  volume = {},
+  number = {},
+  pages = {},
+  year = {},
+  publisher = {}
+}
+```
