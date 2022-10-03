@@ -1,6 +1,6 @@
 
 
-# LC2WF: Learning to Construct 3D Building Wireframes from 3D Line Clouds
+# Learning to Construct 3D Building Wireframes from 3D Line Clouds
 
 <p>
 <img align="center"  src="fig/mtd_overview_v2.jpg" width="1000">
@@ -143,7 +143,7 @@ python trainClassify.py
 
 
 
-8. The best model will be saved in log/***/saved_models folder.
+8. The best model will be saved in `log/***/saved_models` folder.
 
 
 
