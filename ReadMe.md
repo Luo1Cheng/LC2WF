@@ -66,19 +66,19 @@ unzip pretrained.zip
 
 |----LC2WF_data
 
-|$\qquad$|----house
+|&ensp;&ensp;&ensp;&ensp;|----house
 
-|$\qquad$|----LineCloud_0130_P123
+|&ensp;&ensp;&ensp;&ensp;|----LineCloud_0130_P123
 
-|$\qquad$|----test.txt
+|&ensp;&ensp;&ensp;&ensp;|----test.txt
 
-|$\qquad$|----train.txt
+|&ensp;&ensp;&ensp;&ensp;|----train.txt
 
 |----pretrained
 
-|$\qquad$|----junction.pth
+|&ensp;&ensp;&ensp;&ensp;|----junction.pth
 
-|$\qquad$|----edge.pth
+|&ensp;&ensp;&ensp;&ensp;|----edge.pth
 
 |...
 
