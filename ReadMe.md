@@ -35,6 +35,7 @@ You can find more details at: [[paper]](https://arxiv.org/abs/2208.11948) | [[da
 | :--------------: | ------------------------------------------------------------ |
 | pretrained-model | [[Google Drive]] / [[BaiduYun]](https://pan.baidu.com/s/1QwSpN5o9wLnhHcrr1H6IZg)(code:engt) |
 |     dataset      | [[Google Drive]] / [[BaiduYun]](https://pan.baidu.com/s/1kniIVDjgyLIACVze2g4aow )(code:p9kb) |
+|    mvs-image     | [[Google Drive]] / [[BaiduYun]](https://pan.baidu.com/s/1Ac0HpVGoYZyKfEzLKlVZoQ )(code:tdnf) |
 
 
 
@@ -65,19 +66,19 @@ unzip pretrained.zip
 
 |----LC2WF_data
 
-|    |----house
+|$\qquad$|----house
 
-|    |----LineCloud_0130_P123
+|$\qquad$|----LineCloud_0130_P123
 
-|    |----test.txt
+|$\qquad$|----test.txt
 
-|    |----train.txt
+|$\qquad$|----train.txt
 
 |----pretrained
 
-|    |----junction.pth
+|$\qquad$|----junction.pth
 
-|    |----edge.pth
+|$\qquad$|----edge.pth
 
 |...
 
