@@ -169,13 +169,13 @@ If you use this code/dataset for your research, please cite our paper:
 
 ```
 @article{luo2022LC2WF,
-  author = {},
-  title = {},
-  journal = {},
+  author = {Yicheng Luo, Jing Ren, Xuefei Zhe, Di Kang, Yajing Xu, Peter Wonka, and Linchao Bao},
+  title = {LC2WF:Learning to Construct 3D Building Wireframes from 3D Line Clouds},
+  journal = {British Machine Vision Conference},
   volume = {},
   number = {},
   pages = {},
-  year = {},
+  year = {2022},
   publisher = {}
 }
 ```
