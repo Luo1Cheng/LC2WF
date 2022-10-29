@@ -33,7 +33,7 @@ You can find more details at: [[paper]](https://arxiv.org/abs/2208.11948) | [[da
 
 |                  | url                                                          |
 | :--------------: | ------------------------------------------------------------ |
-| pretrained-model | [[Google Drive]] / [[BaiduYun]](https://pan.baidu.com/s/1QwSpN5o9wLnhHcrr1H6IZg)(code:engt) |
+| pretrained-model | [[Google Drive]](https://drive.google.com/file/d/106UGrbGmtRsjOWg3wn3CxICOYr0vaz8q/view?usp=share_link) / [[BaiduYun]](https://pan.baidu.com/s/1QwSpN5o9wLnhHcrr1H6IZg)(code:engt) |
 |     dataset      | [[Google Drive]](https://drive.google.com/file/d/1vkAwroo5W8VKAUF8LoO7TguaSAAj6Ts_/view?usp=share_link) / [[BaiduYun]](https://pan.baidu.com/s/1kniIVDjgyLIACVze2g4aow )(code:p9kb) |
 |    mvs-image     | [[Google Drive]] / [[BaiduYun]](https://pan.baidu.com/s/1Ac0HpVGoYZyKfEzLKlVZoQ )(code:tdnf) |
 
@@ -108,7 +108,7 @@ git clone https://github.com/Luo1Cheng/LC2WF.git
 
 
 
-2. Download line cloud data from [[Google Drive]]() or [[Baidu Disk]](https://pan.baidu.com/s/1kniIVDjgyLIACVze2g4aow )(code:p9kb)
+2. Download line cloud data from [[Google Drive]](https://drive.google.com/file/d/1vkAwroo5W8VKAUF8LoO7TguaSAAj6Ts_/view?usp=share_link) or [[Baidu Disk]](https://pan.baidu.com/s/1kniIVDjgyLIACVze2g4aow )(code:p9kb)
 
    
 
