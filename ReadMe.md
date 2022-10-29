@@ -34,7 +34,7 @@ You can find more details at: [[paper]](https://arxiv.org/abs/2208.11948) | [[da
 |                  | url                                                          |
 | :--------------: | ------------------------------------------------------------ |
 | pretrained-model | [[Google Drive]] / [[BaiduYun]](https://pan.baidu.com/s/1QwSpN5o9wLnhHcrr1H6IZg)(code:engt) |
-|     dataset      | [[Google Drive]] / [[BaiduYun]](https://pan.baidu.com/s/1kniIVDjgyLIACVze2g4aow )(code:p9kb) |
+|     dataset      | [[Google Drive]](https://drive.google.com/file/d/1vkAwroo5W8VKAUF8LoO7TguaSAAj6Ts_/view?usp=share_link) / [[BaiduYun]](https://pan.baidu.com/s/1kniIVDjgyLIACVze2g4aow )(code:p9kb) |
 |    mvs-image     | [[Google Drive]] / [[BaiduYun]](https://pan.baidu.com/s/1Ac0HpVGoYZyKfEzLKlVZoQ )(code:tdnf) |
 
 
