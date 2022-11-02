@@ -15,7 +15,7 @@ We therefore introduce a two-layer **Line-Patch Transformer** to extract junctio
 We also introduce a synthetic dataset of multi-view images with ground-truth 3D wireframe.
 
 
-You can find more details at: [[paper]](https://arxiv.org/abs/2208.11948) | [[dataset and models]](###pretrained-models-and-data) | [[suppl.]]()
+You can find more details at: [[paper]](https://arxiv.org/abs/2208.11948) | [[dataset and models]](#pretrained-models-and-data) | [[suppl.]]()
 
 
 
