@@ -168,14 +168,10 @@ python trainClassify.py
 If you use this code/dataset for your research, please cite our paper:
 
 ```
-@article{luo2022LC2WF,
-  author = {},
-  title = {},
-  journal = {},
-  volume = {},
-  number = {},
-  pages = {},
-  year = {},
-  publisher = {}
+@InProceedings{luo2022LC2WF,
+  author = "Yicheng Luo, Jing Ren, Xuefei Zhe, Di Kang, Yajing Xu, Peter Wonka, and Linchao Bao",
+  title = "LC2WF:Learning to Construct 3D Building Wireframes from 3D Line Clouds",
+  booktitle = "Proc. BMVC",
+  year = 2022
 }
 ```
