@@ -109,7 +109,7 @@ def dynamicMatchV2():
     all_time = 0
     FinalOutPath = "./finalOutOBJ"
     os.makedirs(FinalOutPath,exist_ok=True)
-    json_list = sorted(glob.glob("./log/outputPredWireframe/*.json"))
+    json_list = sorted(glob.glob("../log/outputPredWireframe/*.json"))
     LINE_NMS_THRESH = 20
     CONNECT_THRESH = 0.30
     MERGE_THRESH = 0.2
