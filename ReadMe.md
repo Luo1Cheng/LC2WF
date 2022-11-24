@@ -152,9 +152,9 @@ python trainClassify.py
 
 ## Comments
 ### References & Baselines
-   1. We use *Line3D++* for line cloud extraction: [[paper]]() | [[code]]()
+   1. We use *Line3D++* for line cloud extraction: [[paper]](https://www.sciencedirect.com/science/article/abs/pii/S1077314216300236) | [[code]](https://github.com/manhofer/Line3Dpp)
    2. "***PolyFit**: Polygonal Surface Reconstruction from Point Clouds*", Liangliang Nan and Peter Wonka, ECCV2017. [[project page]](https://3d.bk.tudelft.nl/liangliang/publications/2017/polyfit/polyfit.html)
-   3. "***PC2WF**: 3D Wireframe Reconstruction from Raw Point Clouds*", Yujia Liu, Stefano D'Aronco, Konrad, Schindler, Jan Dirk Wegner, ICLR2021. [[paper]]() | [[code]](https://github.com/YujiaLiu76/PC2WF)
+   3. "***PC2WF**: 3D Wireframe Reconstruction from Raw Point Clouds*", Yujia Liu, Stefano D'Aronco, Konrad, Schindler, Jan Dirk Wegner, ICLR2021. [[paper]](https://arxiv.org/abs/2103.02766) | [[code]](https://github.com/YujiaLiu76/PC2WF)
    4. "***Line2Surf**: Surface Reconstruction from 3D Line Segments*", Pierre-Alain Langlois, Alexandre Boulch, Renaud Marlet, 3DV2019. [[paper]](https://arxiv.org/abs/1911.00451) | [[code]](https://github.com/palanglois/line-surface-reconstruction)
    5. Our dataset is adapted from the paper ["Intuitive and Efficient Roof Modeling for Reconstruction and Synthesis"](https://github.com/llorz/SGA21_roofOptimization/blob/main/README.md)
 
@@ -171,7 +171,7 @@ If you use this code/dataset for your research, please cite our paper:
 @InProceedings{luo2022LC2WF,
   author = "Yicheng Luo, Jing Ren, Xuefei Zhe, Di Kang, Yajing Xu, Peter Wonka, and Linchao Bao",
   title = "LC2WF:Learning to Construct 3D Building Wireframes from 3D Line Clouds",
-  booktitle = "Proc. BMVC",
+  booktitle = "Proceedings of the British Machine Vision Conference (BMVC)",
   year = 2022
 }
 ```
