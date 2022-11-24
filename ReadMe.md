@@ -155,7 +155,7 @@ python trainClassify.py
    1. We use *Line3D++* for line cloud extraction: [[paper]]() | [[code]]()
    2. "***PolyFit**: Polygonal Surface Reconstruction from Point Clouds*", Liangliang Nan and Peter Wonka, ECCV2017. [[project page]](https://3d.bk.tudelft.nl/liangliang/publications/2017/polyfit/polyfit.html)
    3. "***PC2WF**: 3D Wireframe Reconstruction from Raw Point Clouds*", Yujia Liu, Stefano D'Aronco, Konrad, Schindler, Jan Dirk Wegner, ICLR2021. [[paper]]() | [[code]](https://github.com/YujiaLiu76/PC2WF)
-   4. Line2Surf
+   4. "***Line2Surf**: Surface Reconstruction from 3D Line Segments*", Pierre-Alain Langlois, Alexandre Boulch, Renaud Marlet, 3DV2019. [[paper]](https://arxiv.org/abs/1911.00451) | [[code]](https://github.com/palanglois/line-surface-reconstruction)
    5. Our dataset is adapted from the paper ["Intuitive and Efficient Roof Modeling for Reconstruction and Synthesis"](https://github.com/llorz/SGA21_roofOptimization/blob/main/README.md)
 
 ### Acknowledgements
